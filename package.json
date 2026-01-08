@@ -1,0 +1,46 @@
+{
+  "name": "@nativesystems/redacted-core",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/@nativesystems/redacted-core.es.js",
+      "require": "./dist/@nativesystems/redacted-core.cjs.js"
+    },
+    "./components": {
+      "types": "./dist/types/components/index.d.ts",
+      "import": "./dist/@nativesystems/redacted-core/components.es.js",
+      "require": "./dist/@nativesystems/redacted-core/components.cjs.js"
+    }
+  },
+  "peerDependencies": {
+    "@react-three/fiber": "^9.4.0",
+    "@react-three/flex": "^1.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "troika-three-text": "^0.52.3"
+  },
+  "devDependencies": {
+    "@react-three/fiber": "^9.4.0",
+    "@react-three/flex": "^1.0.1",
+    "@rollup/plugin-strip": "^3.0.4",
+    "@types/lodash": "^4.17.20",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.3",
+    "@types/three": "^0.181.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@yarnpkg/plugin-dlx": "^4.0.2",
+    "globals": "^16.4.0",
+    "troika-three-text": "^0.52.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "zustand": "^5.0.3"
+  },
+  "scripts": {
+    "build": "vite build && tsc -d"
+  }
+}
