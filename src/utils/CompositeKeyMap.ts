@@ -1,5 +1,5 @@
 /**
- * Implements a map that accept composite keys.
+ * Implements a map that accepts composite keys.
  * @template K the union of types of key components
  * @template V the value type
  */

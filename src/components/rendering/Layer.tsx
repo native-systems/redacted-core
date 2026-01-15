@@ -6,6 +6,7 @@ import { Scene } from "three"
 import { useRenderer } from "./Renderer"
 import { Vector2 } from "../../primitives/Vector2"
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
+import { RenderStepIdentifierType } from "./Stages"
 
 
 interface LayerTransformInterface {
@@ -46,28 +47,56 @@ const LayerContext = createContext<LayerInterface>(
  */
 export const useLayer = () => useContext(LayerContext)
 
+type RegisterLayerProps = {
+  identifier: RenderStepIdentifierType
+  after?: Iterable<RenderStepIdentifierType>
+  before?: Iterable<RenderStepIdentifierType>
+  clear?: boolean
+}
+
 /**
  * Registers a layer for rendering. Binds the current react-three-fiber scene
  * and camera to the current renderer.
- * @param props.renderPriority the render priority
+ * @param props.identifier a unique render step identifier
+ * @param props.after an optional set of preceding render steps
+ * @param props.before an optional set of following render steps
+ * @param props.clear set this to true to clear all buffers prior to rendering
  */
 export const RegisterLayer = (
-  { renderPriority }: { renderPriority: number }
+  {
+    identifier,
+    after = new Set(),
+    before = new Set(),
+    clear = false
+  }: RegisterLayerProps
 ) => {
   const { registerLayer } = useRenderer()
   const scene = useThree(state => state.scene)
   const camera = useThree(state => state.camera)
 
   useEffect(() => {
-    const unregister = registerLayer(renderPriority, scene, camera)
+    const unregister = registerLayer(
+      identifier,
+      after,
+      before,
+      clear,
+      scene,
+      camera
+    )
     return () => unregister()
-  }, [scene, camera, renderPriority, registerLayer])
+  }, [identifier, after, before, clear, scene, camera, registerLayer])
 
   return <group onPointerOver={() => null} />
 }
 
+type LayerRenderingSettings = {
+  identifier: RenderStepIdentifierType,
+  after: Iterable<RenderStepIdentifierType>
+  before: Iterable<RenderStepIdentifierType>
+}
+
 type LayerProps = {
-  renderPriority: number
+  renderingSettings: LayerRenderingSettings,
   transform: LayerTransformInterface
   children: ReactNode
 }
@@ -76,16 +105,19 @@ type LayerProps = {
  * Declares a render layer. Children of this component will be mounted in their
  * own react-three-fiber scene. The layer is automatically registered in the
  * current renderer.
- * @param props.renderPriority the layer render priority
+ * @param props.renderingSettings the rendering settings
  * @param props.transform the transform functions
  */
-export const Layer = ({ renderPriority, transform, children }: LayerProps) => {
+export const Layer = (
+  { renderingSettings, transform, children }: LayerProps
+) => {
   const scene = useMemo(() => new Scene(), [])
+  const { identifier, after, before } = renderingSettings
 
   return createPortal(
     <LayerContext.Provider value={{transform}}>
       {children}
-      <RegisterLayer renderPriority={renderPriority} />
+      <RegisterLayer identifier={identifier} after={after} before={before} />
     </LayerContext.Provider>,
     scene
   )

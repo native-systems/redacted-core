@@ -8,6 +8,9 @@ import { ComponentVolatileRegistry } from "../../motion/Component"
 import { useVolatile, Volatile } from "../../motion/Volatile"
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
 import { ThreeBox2 } from "../../primitives/Box2"
+import { initializeRenderSteps, newRenderStepIdentifier,
+  RenderStepIdentifierType, UserInterfaceStage } from "./Stages"
+import { PartiallyOrderedSet } from "../../utils/PartiallyOrderedSet"
 
 
 type ComponentIdType = ReturnType<typeof useId>
@@ -44,7 +47,7 @@ type RenderOptions = {
 }
 
 const renderLayer = (
-  priority: number,
+  clear: boolean,
   scene: Scene,
   camera: Camera,
   gl: WebGLRenderer,
@@ -53,9 +56,8 @@ const renderLayer = (
   const { bounds } = options
 
   renderWithBounds(gl, bounds, () => {
-    gl.autoClear = priority === 0 && !bounds
-    if (priority || bounds)
-      gl.clearDepth()
+    gl.autoClear = clear && !bounds
+    gl.clearDepth()
     gl.render(scene, camera)
   })
 }
@@ -63,19 +65,27 @@ const renderLayer = (
 type RenderRoutine = (options: RenderOptions) => void
 
 const registerRenderStep = (
-  renderSteps: Map<number, RenderRoutine>,
-  sortedRenderStepsRef: RefObject<[number, RenderRoutine][]>,
-  priority: number,
+  renderSteps: PartiallyOrderedSet<RenderRoutine, symbol>,
+  sortedRenderStepsRef: RefObject<RenderRoutine[]>,
+  identifier: RenderStepIdentifierType,
+  after: Iterable<RenderStepIdentifierType>,
+  before: Iterable<RenderStepIdentifierType>,
   render: RenderRoutine
 ) => {
-  while (renderSteps.has(priority))
-    // TODO: change this
-    priority += 0.01
-  renderSteps.set(priority, render)
-  sortedRenderStepsRef.current = [...renderSteps.entries()].sort()
+  renderSteps.add(render)
+  renderSteps.addKey(identifier)
+  renderSteps.bindKey(render, identifier)
+  for (const afterRenderStepIdentifier of after)
+    if (!renderSteps.order(afterRenderStepIdentifier, identifier))
+      throw new Error("Render step ordering failed, possible cycle")
+  for (const beforeRenderStepIdentifier of before)
+    if (!renderSteps.order(identifier, beforeRenderStepIdentifier))
+      throw new Error("Render step ordering failed, possible cycle")
+  sortedRenderStepsRef.current = [...renderSteps.sortedValues()]
   return () => {
-    renderSteps.delete(priority)
-    sortedRenderStepsRef.current = [...renderSteps.entries()].sort()
+    renderSteps.removeKey(identifier)
+    renderSteps.delete(render)
+    sortedRenderStepsRef.current = [...renderSteps.sortedValues()]
   }
 }
 
@@ -86,8 +96,20 @@ export interface RendererInterface {
   beforeRenderSignal: Volatile<number>
   invalidate (): void
   attachOnInvalidate (handler: () => void): Unregister
-  registerLayer (priority: number, scene: Scene, camera: Camera): Unregister
-  registerRenderer (priority: number, renderer: RenderRoutine): Unregister
+  registerLayer (
+    identifier: RenderStepIdentifierType,
+    after: Iterable<RenderStepIdentifierType>,
+    before: Iterable<RenderStepIdentifierType>,
+    clear: boolean,
+    scene: Scene,
+    camera: Camera
+  ): Unregister
+  registerRenderer (
+    identifier: RenderStepIdentifierType,
+    after: Iterable<RenderStepIdentifierType>,
+    before: Iterable<RenderStepIdentifierType>,
+    renderer: RenderRoutine
+  ): Unregister
   resolveComponentVolatiles (): void
   render (options?: RenderOptions): void
 }
@@ -119,8 +141,11 @@ export const Renderer = forwardRef(
       () => new Set<Volatile<any>>(),
       []
     )
-    const renderSteps = useMemo(() => new Map(), [])
-    const sortedRenderStepsRef = useRef<[number, RenderRoutine][]>([])
+    const renderSteps = useMemo(
+      () => initializeRenderSteps<RenderRoutine>(),
+      []
+    )
+    const sortedRenderStepsRef = useRef<RenderRoutine[]>([])
     const beforeRenderSignal = useVolatile(1)
     const onInvalidateHandlers = useMemo(() => new Set<() => void>(), [])
 
@@ -134,6 +159,8 @@ export const Renderer = forwardRef(
       return () => componentVolatileRegistry.delete(volatile)
     }, [componentVolatileRegistry])
 
+    const firstLayerIdentifier = useMemo(() => newRenderStepIdentifier(), [])
+
     let symbolResolutionInProgress = false
 
     const rendererInterface: RendererInterface = useMemo(() => ({
@@ -146,18 +173,22 @@ export const Renderer = forwardRef(
         onInvalidateHandlers.add(handler)
         return () => void onInvalidateHandlers.delete(handler)
       },
-      registerLayer: (priority, scene, camera) =>
+      registerLayer: (identifier, after, before, clear, scene, camera) =>
         registerRenderStep(
           renderSteps,
           sortedRenderStepsRef,
-          priority,
-          options => renderLayer(priority, scene, camera, gl, options)
+          identifier,
+          after,
+          before,
+          options => renderLayer(clear, scene, camera, gl, options)
         ),
-      registerRenderer: (priority, renderer) =>
+      registerRenderer: (identifier, after, before, renderer) =>
         registerRenderStep(
           renderSteps,
           sortedRenderStepsRef,
-          priority,
+          identifier,
+          after,
+          before,
           options => renderer(options)
         ),
       resolveComponentVolatiles () {
@@ -172,9 +203,7 @@ export const Renderer = forwardRef(
         symbolResolutionInProgress = false
       },
       render (options = {}) {
-        sortedRenderStepsRef.current.forEach(
-          ([_priority, render]) => render(options)
-        )
+        sortedRenderStepsRef.current.forEach((render) => render(options))
       }
     }), [size, beforeRenderSignal, renderSteps, gl])
 
@@ -185,7 +214,11 @@ export const Renderer = forwardRef(
         <ComponentVolatileRegistry register={registerComponentVolatile}>
           {children}
         </ComponentVolatileRegistry>
-        <RegisterLayer renderPriority={0} />
+        <RegisterLayer
+          clear={true}
+          identifier={firstLayerIdentifier}
+          before={[UserInterfaceStage.start]}
+          />
       </RendererContext.Provider>
     )
   }

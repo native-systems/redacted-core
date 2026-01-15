@@ -6,7 +6,7 @@ import { WebGLRenderer } from "three"
 import { AnimationHandler } from './motion/Animation'
 import { InputManager } from './input/InputManager'
 import { Renderer, RendererInterface } from './components/rendering/Renderer'
-import { LayerStack, LayerConfigurationMap }
+import { LayerStack, LayerConfigurationArray }
   from './components/rendering/LayerStack'
 
 
@@ -22,7 +22,7 @@ const RenderScreen = (
 type MainSceneProps = {
   children: ReactNode
   MainCameraClass: ComponentType<any>
-  LayerClasses: LayerConfigurationMap
+  LayerClasses: LayerConfigurationArray
 }
 
 const MainScene = (
@@ -53,7 +53,7 @@ type ApplicationProps = {
   children: ReactNode
   eventSource: HTMLElement
   MainCameraClass: ComponentType<any>
-  LayerClasses: LayerConfigurationMap
+  LayerClasses: LayerConfigurationArray
 }
 
 /**

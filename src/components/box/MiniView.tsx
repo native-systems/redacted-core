@@ -1,10 +1,11 @@
-import React, { RefObject, useEffect, useId, useRef } from "react"
+import React, { RefObject, useEffect, useId, useMemo, useRef } from "react"
 
 import { RendererInterface, useRenderer } from "../rendering/Renderer"
 import { LocalLayoutClient, LocalLayoutClientContainer, useLocalLayoutSettings }
   from "../layout/LocalLayout"
 import { Resolve } from "../../motion/Component"
 import { useDerivatedVolatile } from "../../motion/Volatile"
+import { newRenderStepIdentifier, SubviewStage } from "../rendering/Stages"
 
 
 type MiniViewImplProps = {
@@ -19,6 +20,7 @@ const MiniViewImpl = (
   const { invalidate, registerRenderer, beforeRenderSignal } = useRenderer()
   const bounds = useLocalLayoutSettings()
   const id = useId()
+  const renderStepIdentifier = useMemo(() => newRenderStepIdentifier(), [])
 
   // This resolver symbol is used to bind the parent renderer pre-rendering step
   // to the child's renderer.
@@ -30,26 +32,31 @@ const MiniViewImpl = (
   useEffect(() => {
     // Forwards invalidation requests to the parent renderer
     const detachOnInvalidate = renderer.attachOnInvalidate(invalidate)
-    const unregisterRenderer = registerRenderer(5, (options) => {
-      if (!containerRef.current)
-        return
-      const bounds = containerRef.current.getBounds()
-      if (!bounds)
-        return
-      const { renderedComponents = {} } = options
-      if (id in renderedComponents)
-        return
-      return renderer.render({
-        bounds: containerRef.current.getBounds(),
-        ...options,
-        renderedComponents: { ...renderedComponents, [id]: true }
-      })
-    })
+    const unregisterRenderer = registerRenderer(
+      renderStepIdentifier,
+      [SubviewStage.start],
+      [SubviewStage.end],
+      (options) => {
+        if (!containerRef.current)
+          return
+        const bounds = containerRef.current.getBounds()
+        if (!bounds)
+          return
+        const { renderedComponents = {} } = options
+        if (id in renderedComponents)
+          return
+        return renderer.render({
+          bounds: containerRef.current.getBounds(),
+          ...options,
+          renderedComponents: { ...renderedComponents, [id]: true }
+        })
+      }
+    )
     return () => {
       unregisterRenderer()
       detachOnInvalidate()
     }
-  }, [registerRenderer, renderer, id, bounds, height])
+  }, [registerRenderer, renderStepIdentifier, renderer, id, bounds, height])
 
   return <Resolve volatile={resolver} />
 }

@@ -51,11 +51,11 @@ export const Frame = (
 
   const computeBorderPoints = useCallback((size: Vector2) => {
     return [
-      [-size.x / 2, -size.y / 2, z + 1],
-      [-size.x / 2, size.y / 2, z + 1],
-      [size.x / 2, size.y / 2, z + 1],
-      [size.x / 2, -size.y / 2, z + 1],
-      [-size.x / 2, -size.y / 2, z + 1],
+      [-size.x / 2 + 1, -size.y / 2 + 1, z + 1],
+      [-size.x / 2 + 1, size.y / 2 - 1, z + 1],
+      [size.x / 2 - 1, size.y / 2 - 1, z + 1],
+      [size.x / 2 - 1, -size.y / 2 + 1, z + 1],
+      [-size.x / 2 + 1, -size.y / 2 + 1, z + 1],
     ]
   }, [z])
 
@@ -65,6 +65,7 @@ export const Frame = (
         <planeGeometry />
         <meshBasicMaterial
           side={DoubleSide}
+          transparent
           {...props}
           />
       </FrameMesh>

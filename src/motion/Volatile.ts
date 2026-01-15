@@ -340,8 +340,6 @@ class MergedVolatiles<S extends unknown[]> extends DerivatedVolatileBase<S, S> {
     this.sources = sources
     this.auxiliaries = undefined
     this.value = UNDEFINED_VALUE
-    // See comment in DerivatedVolatile.constructor.
-    // this.ensureInitialized()
   }
 
   current (): S | UndefinedValueType {

@@ -1,9 +1,10 @@
 import React, { ComponentType, createContext, ReactNode, useContext, useMemo,
-  useRef, useState } from "react"
+  useRef } from "react"
 import { Camera } from "three"
 
 import { createTunnel, type TunnelType } from "../../utils/Tunnel"
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
+import { newRenderStepIdentifier, UserInterfaceStage } from "./Stages"
 
 
 export type LayerIdentifierType = string
@@ -12,7 +13,7 @@ type GetTunnelAtCallbackType = (tunnel: TunnelType) => void
 
 interface LayerStackInterface {
   getTunnelAt (
-    layer: LayerIdentifierType,
+    layerIdentifier: LayerIdentifierType,
     callback: GetTunnelAtCallbackType
   ): void,
   getMainCamera (): Camera | null
@@ -30,18 +31,16 @@ const LayerStackContext = createContext<LayerStackInterface>(
 export const useLayerStack = () => useContext(LayerStackContext)
 
 type LayerConfiguration = {
-  renderPriority: number
+  name: LayerIdentifierType,
   LayerClass: ComponentType<any>
 }
 
-export type LayerConfigurationMap = {
-  [name: LayerIdentifierType]: LayerConfiguration
-}
+export type LayerConfigurationArray = Array<LayerConfiguration>
 
 type LayerStackProps = {
   MainCameraClass: ComponentType<any>
   children: ReactNode
-  LayerClasses: LayerConfigurationMap
+  LayerClasses: LayerConfigurationArray
 }
 
 /**
@@ -51,7 +50,7 @@ type LayerStackProps = {
  * {@link defaultLayerClasses}. Children can use the {@link UpperLayerTransport}
  * to deport elements to an upper layer.
  * @param props.MainCameraClass the class of the main camera
- * @param props.LayerClasses an optional object describing the layers
+ * @param props.LayerClasses an array of layer configurations
  */
 export const LayerStack = ({
   MainCameraClass,
@@ -59,37 +58,42 @@ export const LayerStack = ({
   LayerClasses
 }: LayerStackProps) => {
   const camera = useRef<Camera>(null)
-  const [tunnels, setTunnels] = useState<{
-    [x: LayerIdentifierType]: TunnelType
-  }>({})
+  const tunnels = useMemo(
+    () => Object.fromEntries(
+      LayerClasses.map(({ name }) => [name, createTunnel()])
+    ),
+    []
+  )
 
   const layerStackInterface = useMemo(() => ({
-    getTunnelAt (
-      layer: LayerIdentifierType,
+    getTunnelAt: (
+      layerIdentifier: LayerIdentifierType,
       callback: GetTunnelAtCallbackType
-    ) {
-      if (tunnels[layer])
-        callback(tunnels[layer])
-      else {
-        const tunnel = createTunnel()
-        callback(tunnel)
-        setTunnels(tunnels => {
-          return Object.assign({ [layer]: tunnel }, tunnels)
-        })
-      }
-    },
+    ) => callback(tunnels[layerIdentifier]),
     getMainCamera: () => camera.current
   }), [tunnels, camera])
 
-  const layerComponents = useMemo(() => Object.keys(tunnels).map(index => {
-    const tunnel = tunnels[index]
-    const { renderPriority, LayerClass } = LayerClasses[index]
-    return (
-      <LayerClass key={index} renderPriority={renderPriority}>
-        <tunnel.Out />
-      </LayerClass>
-    )
-  }), [tunnels])
+  const layerComponents = useMemo(() => {
+    const layers = []
+    for (const { name, LayerClass } of LayerClasses) {
+      const tunnel = tunnels[name]
+      const { start: stageStart, end: stageEnd } = UserInterfaceStage
+      let last = undefined
+      const renderStepIdentifier = newRenderStepIdentifier(name)
+      const renderingSettings = {
+        identifier: renderStepIdentifier,
+        after: last? [stageStart, last]: [stageStart],
+        before: [stageEnd]
+      }
+      layers.push(
+        <LayerClass key={name} renderingSettings={renderingSettings}>
+          <tunnel.Out />
+        </LayerClass>
+      )
+      last = renderStepIdentifier
+    }
+    return layers
+  }, [LayerClasses, tunnels])
 
   return (
     <>
