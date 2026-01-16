@@ -42,7 +42,9 @@ class Graph<K> {
   }
 
   public addEdge (a: K, b: K): boolean {
-    if (!this.hasCycle(a, this.nodes, this.nodes.get(b)!.upstream))
+    if (!this.nodes.has(a) || !this.nodes.has(b))
+      return false
+    if (this.hasCycle(a, this.nodes, this.nodes.get(b)!.upstream))
       return false
     if (!this.nodes.has(a))
       this.nodes.set(a, new GraphNode<K>())
@@ -79,12 +81,12 @@ class Graph<K> {
     nodesToVerify: Set<K>
   ): boolean {
     if (nodesToVerify.has(root))
-      return false
+      return true
     for (const element of nodesToVerify) {
-      if (!this.hasCycle(root, nodes, nodes.get(element)!.upstream))
-        return false
+      if (this.hasCycle(root, nodes, nodes.get(element)!.upstream))
+        return true
     }
-    return true
+    return false
   }
 }
 

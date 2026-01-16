@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef } from "react"
 
-import { useDerivatedVolatile, Volatile } from "./Volatile"
+import { RootVolatile, useDerivatedVolatile, Volatile } from "./Volatile"
 import { useRenderer } from "../components/rendering"
 import { Vector3ConstructorSingleParameterTypes, Vector3, ThreeVector3 }
   from "../primitives/Vector3"
@@ -9,6 +9,11 @@ import { Vector3ConstructorSingleParameterTypes, Vector3, ThreeVector3 }
 const currentAnimatedTargets = new Set()
 
 const useClock = () => () => window.performance.now() / 1000
+
+// This signal is set before each animation-triggered render and is used to
+// ensure that animation values are invalidated even when their actual source
+// is not. Targets may stay registered indefinitely otherwise.
+const animationSignal = new RootVolatile(1)
 
 const useAnimation = () => {
   const id = useId()
@@ -35,7 +40,7 @@ export const useAnimatedPosition = (
   const lastUpdate = useRef(getNow())
   const currentPosition = useRef<Vector3>(null)
   useEffect(() => () => void stopAnimation(), [])
-  return useDerivatedVolatile(position, (value) => {
+  return useDerivatedVolatile([position, animationSignal], (value, _) => {
     const targetPosition = Vector3.create(value)
     const now = getNow()
     if (!active.current)
@@ -68,7 +73,12 @@ export const AnimationHandler = () => {
 
   useEffect(() => {
     const interval = setInterval(
-      () => currentAnimatedTargets.size && invalidate(),
+      () => {
+        if (currentAnimatedTargets.size) {
+          animationSignal.set(1)
+          invalidate()
+        }
+      },
       // TODO: check how to retrieve the screen frame rate
       16
     )

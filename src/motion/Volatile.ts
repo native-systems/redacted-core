@@ -64,6 +64,12 @@ export class ResourceHandle<out T> {
 export const isResourceHandle =
   (object: any) => object instanceof ResourceHandle
 
+interface InvalidateSignalStore { send (): void }
+interface ReadyStateSignalStore { ready: boolean; send (ready: boolean): void }
+
+type ListenerCallback<Store> = (store: Store) => void
+type UnsubscribeCallback = () => void
+
 /**
  * Represents a value or resource whose identity remains stable accross renders
  * and can be used as the source of other values.
@@ -76,8 +82,8 @@ export abstract class Volatile<T> {
    * @param volatiles the source volatiles
    * @returns a derivated volatile
    */
-  static merge <U extends unknown[]> (
-    ...volatiles: { [K in keyof U]: VolatileBase<U[K]>}
+  static merge <U extends readonly unknown[]> (
+    ...volatiles: { [K in keyof U]: Volatile<U[K]>}
   ): MergedVolatiles<U> {
     return new MergedVolatiles<U>(...volatiles)
   }
@@ -94,29 +100,11 @@ export abstract class Volatile<T> {
    * @returns the volatile value
    */
   abstract current (): T | UndefinedValueType
-  
-  /**
-   * Used for internal purposes. 
-   * @returns the auxiliary volatile, or undefined or null
-   */
-  abstract getAuxiliary (): VolatileBase<void> | undefined | null
-}
 
-interface InvalidateSignalStore { send (): void }
-interface ReadyStateSignalStore { ready: boolean; send (ready: boolean): void }
-
-type ListenerCallback<Store> = (store: Store) => void
-type UnsubscribeCallback = () => void
-
-abstract class VolatileBase<T> extends Volatile<T> {
   private invalidateSignal: StoreApi<InvalidateSignalStore>
   private readyStateSignal: StoreApi<ReadyStateSignalStore>
 
-  abstract ready(): boolean
-  abstract current(): T | UndefinedValueType
-
   constructor () {
-    super()
     this.invalidateSignal = create((set) => ({ send: () => set({ }) }))
     this.readyStateSignal = create(
       (set) => ({ ready: false, send: (ready) => set({ ready }) })
@@ -143,7 +131,7 @@ abstract class VolatileBase<T> extends Volatile<T> {
     this.invalidateSignal.getState().send()
   }
 
-  getAuxiliary (): VolatileBase<void> | undefined | null {
+  getAuxiliary (): Volatile<void> | undefined | null {
     return undefined
   }
 }
@@ -152,13 +140,13 @@ abstract class VolatileBase<T> extends Volatile<T> {
  * Retrieves the value type of a Volatile type.
  * @template Type the volatile type to retrieve the value type from
  */
-export type ValueType<Type> = Type extends VolatileBase<infer T>? T: never
+export type ValueType<Type> = Type extends Volatile<infer T>? T: never
 
-export class RootVolatile<T> extends VolatileBase<T> {
+export class RootVolatile<T> extends Volatile<T> {
   private value: T | UndefinedValueType
-  private auxiliary?: VolatileBase<void>
+  private auxiliary?: Volatile<void>
 
-  constructor (value: any = UNDEFINED_VALUE) {
+  constructor (value: T | typeof UNDEFINED_VALUE = UNDEFINED_VALUE) {
     super()
     this.value = value
     this.auxiliary = undefined
@@ -201,7 +189,7 @@ export class RootVolatile<T> extends VolatileBase<T> {
   /**
    * Used for internal purposes.
    */
-  setAuxiliary (auxiliary: VolatileBase<void>, key: any) {
+  setAuxiliary (auxiliary: Volatile<void>, key: any) {
     if (key !== KEY)
       throw new Error("Setting a volatile auxiliary is forbidden.")
     this.auxiliary = auxiliary
@@ -212,10 +200,10 @@ export class RootVolatile<T> extends VolatileBase<T> {
   }
 }
 
-type SourceArray<T> = { [K in keyof T]: VolatileBase<T[K]> }
+type SourceArray<T> = { [K in keyof T]: Volatile<T[K]> }
 
-abstract class DerivatedVolatileBase<T, S extends unknown[]>
-extends VolatileBase<T> {
+abstract class DerivatedVolatileBase<T, S extends readonly unknown[]>
+extends Volatile<T> {
   protected sources: SourceArray<S>
   protected initialized: boolean
   protected readySet: boolean
@@ -236,7 +224,7 @@ extends VolatileBase<T> {
     sources.forEach(
       (source) =>
         source instanceof DerivatedVolatileBase
-        && source.ensureInitialized()
+          && source.ensureInitialized()
     )
     const computeReadyFromSources =
       () => !!(sources.length)
@@ -290,12 +278,12 @@ extends VolatileBase<T> {
 }
 
 class DerivatedVolatile<T, S> extends DerivatedVolatileBase<T, [S]> {
-  private source: VolatileBase<S>
+  private source: Volatile<S>
   private compute: (value: S) => T
   private value: T | UndefinedValueType
-  private auxiliary?: VolatileBase<void> | null
+  private auxiliary?: Volatile<void> | null
 
-  constructor (source: VolatileBase<S>, compute: (value: S) => T) {
+  constructor (source: Volatile<S>, compute: (value: S) => T) {
     super(source)
     this.source = source
     this.compute = compute
@@ -331,9 +319,10 @@ class DerivatedVolatile<T, S> extends DerivatedVolatileBase<T, [S]> {
   }
 }
 
-class MergedVolatiles<S extends unknown[]> extends DerivatedVolatileBase<S, S> {
+class MergedVolatiles<S extends readonly unknown[]>
+extends DerivatedVolatileBase<S, S> {
   private value: S | UndefinedValueType
-  private auxiliaries?: VolatileBase<void> | null
+  private auxiliaries?: Volatile<void> | null
 
   constructor (...sources: SourceArray<S>) {
     super(...sources)
@@ -350,7 +339,7 @@ class MergedVolatiles<S extends unknown[]> extends DerivatedVolatileBase<S, S> {
     return this.value
   }
 
-  getAuxiliary (): VolatileBase<void> | undefined | null {
+  getAuxiliary (): Volatile<void> | undefined | null {
     if (this.auxiliaries === undefined) {
       const auxiliaries = (
         this.sources
@@ -372,7 +361,7 @@ class MergedVolatiles<S extends unknown[]> extends DerivatedVolatileBase<S, S> {
  * @returns `true` if the object is a volatile, `false` otherwise
  */
 export const isVolatile = (object: any): boolean =>
-  object instanceof VolatileBase
+  object instanceof Volatile
 
 /**
  * Returns the resource held by a handle in a volatile.
@@ -424,11 +413,10 @@ export const useVolatileReady = (volatile: Volatile<any>): boolean => {
   useEffect(() => {
     if (volatile.ready() !== ready)
       updateState()
-    const unsubscribe = 
-      (volatile as VolatileBase<any>).subscribeReadyStateChange(() => {
-        if (volatile.ready() !== ready)
-          updateState()
-      })
+    const unsubscribe = volatile.subscribeReadyStateChange(() => {
+      if (volatile.ready() !== ready)
+        updateState()
+    })
     return () => unsubscribe()
   }, [volatile, ready])
   return ready
@@ -443,7 +431,7 @@ export const useVolatileReady = (volatile: Volatile<any>): boolean => {
  * @returns the instantiated volatile
  */
 export const useVolatile = <T> (
-  initial: T | VolatileBase<T> | UndefinedValueType = UNDEFINED_VALUE
+  initial: T | Volatile<T> | UndefinedValueType = UNDEFINED_VALUE
 ): RootVolatile<T> => {
   const initialIsVolatile = isVolatile(initial)
   const volatile = useRef(
@@ -470,7 +458,7 @@ export const useVolatile = <T> (
  * @returns 
  */
 export function useDerivatedVolatile<T, S> (
-  volatileOrArray: Volatile<S>,
+  volatile: Volatile<S>,
   compute: (source: S) => T,
   deps?: any[]
 ): DerivatedVolatile<T, S>
@@ -480,14 +468,14 @@ export function useDerivatedVolatile<T, S> (
  * `compute` function will receive passed volatile values as distinct arguments.
  * @template T the derivated volatile type
  * @template S the tuple of source volatile value types
- * @param volatileArray the array of source volatiles
+ * @param array the array of source volatiles
  * @param compute the function that computes the derivated volatile value
  * @param deps an optional dependency array
  * @returns 
  */
-export function useDerivatedVolatile<T, S extends unknown[]> (
-  volatileOrArray: SourceArray<S>,
-  compute: (...sources: S[]) => T,
+export function useDerivatedVolatile<T, S extends readonly unknown[]> (
+  volatileArray: SourceArray<S>,
+  compute: (...sources: S) => T,
   deps?: any[]
 ): DerivatedVolatile<T, S>
 
@@ -499,7 +487,7 @@ export function useDerivatedVolatile<T, S> (
   const volatile = useMemo(
     () =>
       Array.isArray(volatileOrArray)
-        ? RootVolatile.merge(...volatileOrArray)
+        ? Volatile.merge(...volatileOrArray)
         : volatileOrArray,
     [volatileOrArray]
   )
@@ -546,7 +534,7 @@ export function useDelayedDerivatedVolatile<T, S> (
  * @param compute The function that computes the derivated volatile value
  * @param deps An optional dependency array
  */
-export function useDelayedDerivatedVolatile<T, S extends unknown[]> (
+export function useDelayedDerivatedVolatile<T, S extends readonly unknown[]> (
   volatileArray: SourceArray<S>,
   compute: ((...sources: [...S, (value: T) => void]) => void),
   deps?: any[]

@@ -1,4 +1,4 @@
-import { warn } from "../logging/Log"
+import { debug, warn } from "../logging/Log"
 
 import { Volatile, useDerivatedVolatile, useVolatile } from "../motion/Volatile"
 
@@ -16,7 +16,12 @@ export const inspectRoot = () => {
     type ExtendedWindow = { [INSPECT_ROOT_KEY]: { [_: string]: any } }
     const extendedWindow = window as unknown as ExtendedWindow
     if (!Object.keys(extendedWindow).includes(INSPECT_ROOT_KEY))
-      extendedWindow[INSPECT_ROOT_KEY] = {}
+      extendedWindow[INSPECT_ROOT_KEY] = new Proxy(window, {
+        set(_object, property, _value) {
+          debug(`New inspectable object created with key '${String(property)}'`)
+          return true
+        }
+      }) 
     return extendedWindow[INSPECT_ROOT_KEY]
   }
   return {}

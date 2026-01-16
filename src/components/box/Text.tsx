@@ -18,7 +18,7 @@ import { inspectRoot } from "../../utils/Debug"
 extend({ TroikaText })
 
 type CommonTextProps = {
-  ref: RefObject<TroikaText | null>
+  ref?: RefObject<TroikaText | null>
   type?: FontProfiles
   onResize?: (size: Box3) => void
 }
@@ -101,7 +101,7 @@ const StaticText = (
 ) => {
   __DEBUG_STATEMENT__: {
     if (typeof children !== "string" && typeof children !== "number") {
-      warn("Text child is not a string or number, see StaticText_children")
+      warn("Text child is not a string or number")
       inspectRoot().StaticText_children = children
     }
   }

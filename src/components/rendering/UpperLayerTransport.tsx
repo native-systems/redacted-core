@@ -21,7 +21,7 @@ export function UpperLayerTransport(
   const { getTunnelAt } = useLayerStack()
   const [tunnel, setTunnel] = useState<TunnelType>()
 
-  __DEBUG__STATEMENT__: {
+  __DEBUG_STATEMENT__: {
     if (!layer)
       error("Layer was not specified in UpperLayerTransport")
     if (!children.key)

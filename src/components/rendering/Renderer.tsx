@@ -11,6 +11,8 @@ import { ThreeBox2 } from "../../primitives/Box2"
 import { initializeRenderSteps, newRenderStepIdentifier,
   RenderStepIdentifierType, UserInterfaceStage } from "./Stages"
 import { PartiallyOrderedSet } from "../../utils/PartiallyOrderedSet"
+import { error } from "../../logging/Log"
+import { inspectRoot } from "../../utils/Debug"
 
 
 type ComponentIdType = ReturnType<typeof useId>
@@ -76,11 +78,23 @@ const registerRenderStep = (
   renderSteps.addKey(identifier)
   renderSteps.bindKey(render, identifier)
   for (const afterRenderStepIdentifier of after)
-    if (!renderSteps.order(afterRenderStepIdentifier, identifier))
-      throw new Error("Render step ordering failed, possible cycle")
+    if (!renderSteps.order(afterRenderStepIdentifier, identifier)) {
+      error("Render step ordering failed")
+      inspectRoot().Renderer_registerRenderSteps = {
+        renderSteps,
+        identifier,
+        after
+      }
+    }
   for (const beforeRenderStepIdentifier of before)
-    if (!renderSteps.order(identifier, beforeRenderStepIdentifier))
-      throw new Error("Render step ordering failed, possible cycle")
+    if (!renderSteps.order(identifier, beforeRenderStepIdentifier)) {
+      error("Render step ordering failed")
+      inspectRoot().Renderer_registerRenderSteps = {
+        renderSteps,
+        identifier,
+        before
+      }
+    }
   sortedRenderStepsRef.current = [...renderSteps.sortedValues()]
   return () => {
     renderSteps.removeKey(identifier)
