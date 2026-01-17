@@ -86,15 +86,15 @@ export const MiniView = (
   const computedWidth = width ?? bounds.maxInnerWidth ?? Infinity
   const computedHeight = height ??
     computedWidth / renderer.size.width * renderer.size.height - 2
-  
+
   if (!isFinite(computedWidth))
     throw new Error("Local layout doesn't specify a maxInnerWidth")
 
   return (
     <LocalLayoutClient
       ref={containerRef}
-      height={height}
-      width={bounds.maxInnerWidth}
+      height={computedHeight}
+      width={computedWidth}
       >
       <MiniViewImpl
         containerRef={containerRef}
