@@ -160,6 +160,7 @@ export const Renderer = forwardRef(
       []
     )
     const sortedRenderStepsRef = useRef<RenderRoutine[]>([])
+    const symbolResolutionInProgress = useRef(false)
     const beforeRenderSignal = useVolatile(1)
     const onInvalidateHandlers = useMemo(() => new Set<() => void>(), [])
 
@@ -174,8 +175,6 @@ export const Renderer = forwardRef(
     }, [componentVolatileRegistry])
 
     const firstLayerIdentifier = useMemo(() => newRenderStepIdentifier(), [])
-
-    let symbolResolutionInProgress = false
 
     const rendererInterface: RendererInterface = useMemo(() => ({
       size: size,
@@ -209,12 +208,12 @@ export const Renderer = forwardRef(
         // We need to check whether we're already in the context of a symbol
         // resolution - this can happen if the scene is being rendered into
         // itself using a resolver symbol in the registry.
-        if (symbolResolutionInProgress)
+        if (symbolResolutionInProgress.current)
           return
-        symbolResolutionInProgress = true
+        symbolResolutionInProgress.current = true
         beforeRenderSignal.set(1)
-        componentVolatileRegistry.forEach(volatile => volatile.current())
-        symbolResolutionInProgress = false
+        componentVolatileRegistry.forEach((volatile) => volatile.current())
+        symbolResolutionInProgress.current = false
       },
       render (options = {}) {
         sortedRenderStepsRef.current.forEach((render) => render(options))

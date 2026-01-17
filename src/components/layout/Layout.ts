@@ -20,7 +20,7 @@ interface LayoutInterface {
   bindPosition (
     id: ComponentIdType,
     position: Volatile<ThreeVector2>
-  ): void
+  ): () => void
 }
 
 /**

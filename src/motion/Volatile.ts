@@ -485,11 +485,13 @@ export function useDerivatedVolatile<T, S> (
   deps: any[] = []
 ): DerivatedVolatile<T, S> {
   const volatile = useMemo(
-    () =>
+    () => 
       Array.isArray(volatileOrArray)
         ? Volatile.merge(...volatileOrArray)
         : volatileOrArray,
-    [volatileOrArray]
+    Array.isArray(volatileOrArray)
+      ? volatileOrArray
+      : [volatileOrArray]
   )
   const computeWrapper = useMemo(
     () =>

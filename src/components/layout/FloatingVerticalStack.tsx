@@ -110,10 +110,7 @@ export const FloatingVerticalStack = (
     ) {
       return findOrCreateStack(stackId).subscribe((state) => {
         if (state.positions.has(id))
-          if (!(position instanceof ThreeVector3))
-            position.set(new ThreeVector3(...(state.positions.get(id)!)))
-          else
-            get<ThreeVector3>(position).set(...(state.positions.get(id)!))
+          position.set(new ThreeVector3(...(state.positions.get(id)!)))
         else
           position.unset()
       })

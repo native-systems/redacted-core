@@ -118,7 +118,7 @@ let targets = new Map()
 export const useRegisteredBoundingBox = (ref: RefObject<Object3D | null>) => {
   const { beforeRenderSignal } = useRenderer()
   const { getMainCamera } = useLayerStack()
-  const boundingBox = useDerivatedVolatile(beforeRenderSignal, () => {
+  const boundingBox = useDerivatedVolatile(beforeRenderSignal, (_) => {
     const mainCamera = getMainCamera()
     if (ref.current && mainCamera)
       // TODO: evaluate how we could use the object's layer camera instead -
