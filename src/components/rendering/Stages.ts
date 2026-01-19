@@ -22,14 +22,14 @@ export const UserInterfaceStage = createStage(commonSteps[0], commonSteps[1])
 export const SubviewStage = createStage(commonSteps[1], commonSteps[2])
 export const GlobalOverlayStage = createStage(commonSteps[2], commonSteps[3])
 
-export const initializeRenderSteps = <T>() => {
-  const set = new PartiallyOrderedSet<T, symbol>()
+export const initializeRenderSteps = () => {
+  const set = new PartiallyOrderedSet<RenderStepIdentifierType>()
   let last = null
-  for (const symbol of commonSteps) {
-    set.addKey(symbol)
+  for (const stepIdentifier of commonSteps) {
+    set.add(stepIdentifier)
     if (last)
-      set.order(last, symbol)
-    last = symbol
+      set.order(last, stepIdentifier)
+    last = stepIdentifier
   }
   return set
 }

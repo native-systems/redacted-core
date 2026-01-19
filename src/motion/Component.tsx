@@ -17,7 +17,7 @@ const ComponentVolatileRegistryContext = createContext({
 })
 
 type ComponentVolatileRegistryProps = {
-  register: RegisterCallback,
+  register: RegisterCallback
   children: ReactNode
 }
 
@@ -50,14 +50,7 @@ export const Resolve = ({ volatile }: ResolveProps) => {
   const { register } = useContext(ComponentVolatileRegistryContext)
   useEffect(() => {
     const unregister = register(volatile)
-    const auxiliary = volatile.getAuxiliary()
-    const unregisterAuxiliary = auxiliary
-      ? register(auxiliary)
-      : () => undefined
-    return () => {
-      unregisterAuxiliary()
-      unregister()
-    }
+    return () => unregister()
   }, [volatile, register])
   return <></>
 }
@@ -73,11 +66,10 @@ interface RequireProps {
  * @param props.children The child component tree which has a dependency on it
  */
 export const Require = ({ volatile, children }: RequireProps) => {
-  const auxiliary = volatile.getAuxiliary()
+  const auxiliaries = volatile.getAuxiliaries()
   return (
     <>
       <Resolve volatile={volatile} />
-      {auxiliary? <Resolve volatile={auxiliary} />: <></>}
       {useVolatileReady(volatile)? <>{children}</>: <></>}
     </>
   )

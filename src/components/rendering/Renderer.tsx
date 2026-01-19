@@ -64,42 +64,86 @@ const renderLayer = (
   })
 }
 
+const registerVolatile = (
+  registry: PartiallyOrderedSet<Volatile<any>>,
+  counters: Map<Volatile<any>, number>,
+  volatile: Volatile<any>
+) => {
+  registry.add(volatile)
+  counters.set(volatile, (counters.get(volatile) ?? 0) + 1)
+  volatile.getAuxiliaries().forEach((auxiliary) => {
+    registerVolatile(registry, counters, auxiliary)
+    registry.order(auxiliary, volatile)
+  })
+}
+
+const unregisterVolatile = (
+  registry: PartiallyOrderedSet<Volatile<any>>,
+  counters: Map<Volatile<any>, number>,
+  volatile: Volatile<any>
+) => {
+  volatile.getAuxiliaries().forEach(
+    (auxiliary) => unregisterVolatile(registry, counters, auxiliary)
+  )
+  const counter = counters.get(volatile)!
+  if (counter == 1)
+    return void registry.delete(volatile)
+  counters.set(volatile, counter - 1)
+}
+
 type RenderRoutine = (options: RenderOptions) => void
 
+const updateSortedRenderSteps = (
+  renderStepIdentifiers: PartiallyOrderedSet<RenderStepIdentifierType>,
+  renderSteps: Map<RenderStepIdentifierType, RenderRoutine>
+) => {
+  const sorted = []
+  for (const identifier of renderStepIdentifiers.sortedValues())
+    if (renderSteps.has(identifier))
+      sorted.push(renderSteps.get(identifier)!)
+  return sorted
+}
+
 const registerRenderStep = (
-  renderSteps: PartiallyOrderedSet<RenderRoutine, symbol>,
+  renderStepIdentifiers: PartiallyOrderedSet<RenderStepIdentifierType>,
+  renderSteps: Map<RenderStepIdentifierType, RenderRoutine>,
   sortedRenderStepsRef: RefObject<RenderRoutine[]>,
   identifier: RenderStepIdentifierType,
   after: Iterable<RenderStepIdentifierType>,
   before: Iterable<RenderStepIdentifierType>,
   render: RenderRoutine
 ) => {
-  renderSteps.add(render)
-  renderSteps.addKey(identifier)
-  renderSteps.bindKey(render, identifier)
+  renderSteps.set(identifier, render)
+  renderStepIdentifiers.add(identifier)
   for (const afterRenderStepIdentifier of after)
-    if (!renderSteps.order(afterRenderStepIdentifier, identifier)) {
+    if (!renderStepIdentifiers.order(afterRenderStepIdentifier, identifier)) {
       error("Render step ordering failed")
       inspectRoot().Renderer_registerRenderSteps = {
-        renderSteps,
+        renderStepIdentifiers,
         identifier,
         after
       }
     }
   for (const beforeRenderStepIdentifier of before)
-    if (!renderSteps.order(identifier, beforeRenderStepIdentifier)) {
+    if (!renderStepIdentifiers.order(identifier, beforeRenderStepIdentifier)) {
       error("Render step ordering failed")
       inspectRoot().Renderer_registerRenderSteps = {
-        renderSteps,
+        renderStepIdentifiers,
         identifier,
         before
       }
     }
-  sortedRenderStepsRef.current = [...renderSteps.sortedValues()]
+  sortedRenderStepsRef.current = updateSortedRenderSteps(
+    renderStepIdentifiers,
+    renderSteps
+  )
   return () => {
-    renderSteps.removeKey(identifier)
-    renderSteps.delete(render)
-    sortedRenderStepsRef.current = [...renderSteps.sortedValues()]
+    renderStepIdentifiers.delete(identifier)
+    renderSteps.delete(identifier)
+    sortedRenderStepsRef.current = updateSortedRenderSteps(
+      renderStepIdentifiers,
+      renderSteps
+    )
   }
 }
 
@@ -151,12 +195,18 @@ export const Renderer = forwardRef(
     // nestable one.
     const gl = useThree(state => state.gl)
     const size = useThree(state => state.size)
-    const componentVolatileRegistry = useMemo(
-      () => new Set<Volatile<any>>(),
+    const volatileRegistry = useMemo(
+      () => new PartiallyOrderedSet<Volatile<any>>(),
       []
     )
+    const volatileRegistryCounters = useMemo(
+      () => new Map<Volatile<any>, number>(),
+      []
+    )
+    const sortedVolatiles = useRef<Volatile<any>[]>(null)
+    const renderStepIdentifiers = useMemo(() => initializeRenderSteps(), [])
     const renderSteps = useMemo(
-      () => initializeRenderSteps<RenderRoutine>(),
+      () => new Map<RenderStepIdentifierType, RenderRoutine>(),
       []
     )
     const sortedRenderStepsRef = useRef<RenderRoutine[]>([])
@@ -170,9 +220,12 @@ export const Renderer = forwardRef(
     )
 
     const registerComponentVolatile = useCallback((volatile: Volatile<any>) => {
-      componentVolatileRegistry.add(volatile)
-      return () => componentVolatileRegistry.delete(volatile)
-    }, [componentVolatileRegistry])
+      registerVolatile(volatileRegistry, volatileRegistryCounters, volatile)
+      sortedVolatiles.current = null
+      return () => {
+        unregisterVolatile(volatileRegistry, volatileRegistryCounters, volatile)
+      }
+    }, [volatileRegistry])
 
     const firstLayerIdentifier = useMemo(() => newRenderStepIdentifier(), [])
 
@@ -188,6 +241,7 @@ export const Renderer = forwardRef(
       },
       registerLayer: (identifier, after, before, clear, scene, camera) =>
         registerRenderStep(
+          renderStepIdentifiers,
           renderSteps,
           sortedRenderStepsRef,
           identifier,
@@ -197,6 +251,7 @@ export const Renderer = forwardRef(
         ),
       registerRenderer: (identifier, after, before, renderer) =>
         registerRenderStep(
+          renderStepIdentifiers,
           renderSteps,
           sortedRenderStepsRef,
           identifier,
@@ -212,13 +267,15 @@ export const Renderer = forwardRef(
           return
         symbolResolutionInProgress.current = true
         beforeRenderSignal.set(1)
-        componentVolatileRegistry.forEach((volatile) => volatile.current())
+        if (!sortedVolatiles.current)
+          sortedVolatiles.current = [...volatileRegistry.sortedValues()]
+        sortedVolatiles.current.forEach((volatile) => volatile.current())
         symbolResolutionInProgress.current = false
       },
       render (options = {}) {
         sortedRenderStepsRef.current.forEach((render) => render(options))
       }
-    }), [size, beforeRenderSignal, renderSteps, gl])
+    }), [size, beforeRenderSignal, renderStepIdentifiers, renderSteps, gl])
 
     useImperativeHandle(ref, () => rendererInterface, [rendererInterface])
 

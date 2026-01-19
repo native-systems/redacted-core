@@ -10,17 +10,14 @@ import { ThreeVector2 } from "../../primitives/Vector2"
 type ComponentIdType = ReturnType<typeof useId>
 
 interface LayoutInterface {
-  register (
+  register (id: ComponentIdType): Volatile<ThreeVector3>
+  update (
     id: ComponentIdType,
     size: SizeValueType | Volatile<SizeValueType>,
     target: Volatile<ThreeVector2>,
     snap: boolean
   ): void
-  unregister (id: ComponentIdType): void,
-  bindPosition (
-    id: ComponentIdType,
-    position: Volatile<ThreeVector2>
-  ): () => void
+  unregister (id: ComponentIdType): void
 }
 
 /**
@@ -44,14 +41,13 @@ export const usePosition = (
   target: Volatile<ThreeVector2>,
   enabled: boolean
 ): Volatile<ThreeVector3> => {
+  const { register, unregister, update } = useContext(LayoutContext)
   const id = useId()
-  const position = useVolatile<ThreeVector3>()
-  const { register, unregister, bindPosition } = useContext(LayoutContext)
+  const position = register(id)
   useEffect(
-    () => void register(id, size, target, enabled),
-    [size, target, enabled]
+    () => void update(id, size, target, enabled),
+    [update, size, target, enabled]
   )
   useEffect(() => () => unregister(id), [])
-  useEffect(() => bindPosition(id, position), [bindPosition, position])
   return position
 }

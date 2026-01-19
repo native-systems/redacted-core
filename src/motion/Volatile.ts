@@ -2,9 +2,6 @@ import { useEffect, useMemo, useReducer, useRef } from "react"
 import { create, StoreApi } from "zustand"
 
 
-class KeyType {}
-const KEY = new KeyType()
-
 class UndefinedValueType {}
 const UNDEFINED_VALUE = new UndefinedValueType()
 
@@ -42,7 +39,7 @@ export class ResourceHandle<out T> {
   /**
    * Increments the reference counter.
    */
-  attach () {
+  public attach () {
     this.counter++
   }
 
@@ -50,7 +47,7 @@ export class ResourceHandle<out T> {
    * Decrements the reference counter.
    * If it drops to zero, disposes of the resource.
    */
-  detach () {
+  public detach () {
     this.counter--
     if (!this.counter)
       this.dispose()
@@ -101,8 +98,8 @@ export abstract class Volatile<T> {
    */
   abstract current (): T | UndefinedValueType
 
-  private invalidateSignal: StoreApi<InvalidateSignalStore>
-  private readyStateSignal: StoreApi<ReadyStateSignalStore>
+  private readonly invalidateSignal: StoreApi<InvalidateSignalStore>
+  private readonly readyStateSignal: StoreApi<ReadyStateSignalStore>
 
   constructor () {
     this.invalidateSignal = create((set) => ({ send: () => set({ }) }))
@@ -111,28 +108,37 @@ export abstract class Volatile<T> {
     )
   }
 
-  subscribeReadyStateChange (
+  /**
+   * Used for internal purposes.
+   */
+  public subscribeReadyStateChange (
     callback: ListenerCallback<ReadyStateSignalStore>
   ): UnsubscribeCallback {
     return this.readyStateSignal.subscribe(callback)
   }
 
-  signalReadyStateChange () {
+  protected signalReadyStateChange () {
     this.readyStateSignal.getState().send(this.ready())
   }
 
-  subscribeInvalidation (
+  /**
+   * Used for internal purposes.
+   */
+  public subscribeInvalidation (
     callback: ListenerCallback<InvalidateSignalStore>
   ): UnsubscribeCallback {
     return this.invalidateSignal.subscribe(callback)
   }
 
-  signalInvalidation () {
+  protected signalInvalidation () {
     this.invalidateSignal.getState().send()
   }
 
-  getAuxiliary (): Volatile<void> | undefined | null {
-    return undefined
+  /**
+   * Used for internal purposes.
+   */
+  public getAuxiliaries (): Set<Volatile<void>> {
+    return new Set()
   }
 }
 
@@ -152,11 +158,11 @@ export class RootVolatile<T> extends Volatile<T> {
     this.auxiliary = undefined
   }
 
-  ready () {
+  public ready () {
     return this.current() !== UNDEFINED_VALUE
   }
 
-  current (): T | UndefinedValueType {
+  public current (): T | UndefinedValueType {
     return this.value
   }
 
@@ -167,7 +173,7 @@ export class RootVolatile<T> extends Volatile<T> {
    * @template T the value type
    * @param value the value to set
    */
-  set (value: T | UndefinedValueType): void {
+  public set (value: T | UndefinedValueType): void {
     const previousReady = this.ready()
     if (isResourceHandle(this.value))
       this.value.detach()
@@ -182,21 +188,19 @@ export class RootVolatile<T> extends Volatile<T> {
   /**
    * Unsets the volatile value and sets its readiness to false.
    */
-  unset (): void {
+  public unset (): void {
     this.set(UNDEFINED_VALUE)
   }
 
   /**
    * Used for internal purposes.
    */
-  setAuxiliary (auxiliary: Volatile<void>, key: any) {
-    if (key !== KEY)
-      throw new Error("Setting a volatile auxiliary is forbidden.")
+  setAuxiliary (auxiliary: Volatile<void>) {
     this.auxiliary = auxiliary
   }
 
-  getAuxiliary () {
-    return this.auxiliary
+  getAuxiliaries () {
+    return new Set(this.auxiliary? [this.auxiliary]: [])
   }
 }
 
@@ -204,7 +208,7 @@ type SourceArray<T> = { [K in keyof T]: Volatile<T[K]> }
 
 abstract class DerivatedVolatileBase<T, S extends readonly unknown[]>
 extends Volatile<T> {
-  protected sources: SourceArray<S>
+  protected readonly sources: SourceArray<S>
   protected initialized: boolean
   protected readySet: boolean
   protected readyStateUnsubscribe?: Array<UnsubscribeCallback>
@@ -220,7 +224,7 @@ extends Volatile<T> {
     this.invalidated = false
   }
 
-  initialize (...sources: SourceArray<S>) {
+  private initialize (...sources: SourceArray<S>) {
     sources.forEach(
       (source) =>
         source instanceof DerivatedVolatileBase
@@ -259,39 +263,39 @@ extends Volatile<T> {
     this.signalReadyStateChange()
   }
 
-  ensureInitialized () {
+  public ensureInitialized () {
     if (this.initialized)
       return
     this.initialize(...this.sources)
     this.initialized = true
   }
 
-  dispose () {
+  public dispose () {
     this.unsubscribeInvalidations?.forEach((unsubscribe) => unsubscribe())
     this.readyStateUnsubscribe?.forEach((unsubscribe) => unsubscribe())
     this.initialized = false
   }
 
-  ready () {
+  public ready () {
     return this.readySet
   }
 }
 
 class DerivatedVolatile<T, S> extends DerivatedVolatileBase<T, [S]> {
-  private source: Volatile<S>
-  private compute: (value: S) => T
+  private readonly source: Volatile<S>
   private value: T | UndefinedValueType
-  private auxiliary?: Volatile<void> | null
+  private auxiliaries?: Set<Volatile<void>>
+  private compute: (value: S) => T
 
   constructor (source: Volatile<S>, compute: (value: S) => T) {
     super(source)
     this.source = source
     this.compute = compute
     this.value = UNDEFINED_VALUE
-    this.auxiliary = undefined
+    this.auxiliaries = undefined
   }
 
-  current (): T | UndefinedValueType {
+  public current (): T | UndefinedValueType {
     if (this.invalidated && this.ready()) {
       const newValue = this.compute(this.source.current() as S)
       if (isResourceHandle(this.value))
@@ -304,7 +308,7 @@ class DerivatedVolatile<T, S> extends DerivatedVolatileBase<T, [S]> {
     return isResourceHandle(this.value)? this.value.resource: this.value
   }
 
-  dispose () {
+  public dispose () {
     if (isResourceHandle(this.value)) {
       this.value.detach()
       this.value = UNDEFINED_VALUE
@@ -312,26 +316,29 @@ class DerivatedVolatile<T, S> extends DerivatedVolatileBase<T, [S]> {
     super.dispose()
   }
 
-  getAuxiliary () {
-    if (this.auxiliary === undefined)
-      this.auxiliary = this.source.getAuxiliary() || null
-    return this.auxiliary
+  public getAuxiliaries () {
+    if (this.auxiliaries === undefined)
+      this.auxiliaries = this.source.getAuxiliaries()
+    return this.auxiliaries
+  }
+
+  public rebind (compute: (value: S) => T) {
+    this.compute = compute
   }
 }
 
 class MergedVolatiles<S extends readonly unknown[]>
 extends DerivatedVolatileBase<S, S> {
   private value: S | UndefinedValueType
-  private auxiliaries?: Volatile<void> | null
+  private auxiliaries?: Set<Volatile<void>>
 
   constructor (...sources: SourceArray<S>) {
     super(...sources)
-    this.sources = sources
     this.auxiliaries = undefined
     this.value = UNDEFINED_VALUE
   }
 
-  current (): S | UndefinedValueType {
+  public current (): S | UndefinedValueType {
     if (this.invalidated && this.ready()) {
       this.value = this.sources.map((source) => source.current())
       this.invalidated = false
@@ -339,16 +346,14 @@ extends DerivatedVolatileBase<S, S> {
     return this.value
   }
 
-  getAuxiliary (): Volatile<void> | undefined | null {
+  public getAuxiliaries() {
     if (this.auxiliaries === undefined) {
-      const auxiliaries = (
-        this.sources
-          .map((source) => source.getAuxiliary())
-          .filter((auxiliary) => auxiliary !== undefined && auxiliary !== null)
+      this.auxiliaries = new Set()
+      this.sources.forEach(
+        (source) => source.getAuxiliaries().forEach(
+          (auxiliary) => this.auxiliaries!.add(auxiliary)
+        )
       )
-      this.auxiliaries = auxiliaries.length
-        ? new MergedVolatiles(...auxiliaries)
-        : null
     }
     return this.auxiliaries
   }
@@ -455,12 +460,14 @@ export const useVolatile = <T> (
  * @param volatile the source volatile
  * @param compute the function that computes the derivated volatile value
  * @param deps an optional dependency array
+ * @param stable identity stays the same if compute changes (`false` by default)
  * @returns 
  */
 export function useDerivatedVolatile<T, S> (
   volatile: Volatile<S>,
   compute: (source: S) => T,
-  deps?: any[]
+  deps?: any[],
+  stable?: boolean
 ): DerivatedVolatile<T, S>
 /**
  * Hook that creates a volatile whose value is derivated from several other
@@ -471,18 +478,21 @@ export function useDerivatedVolatile<T, S> (
  * @param array the array of source volatiles
  * @param compute the function that computes the derivated volatile value
  * @param deps an optional dependency array
+ * @param stable identity stays the same if compute changes (`false` by default)
  * @returns 
  */
 export function useDerivatedVolatile<T, S extends readonly unknown[]> (
   volatileArray: SourceArray<S>,
   compute: (...sources: S) => T,
-  deps?: any[]
+  deps?: any[],
+  stable?: boolean
 ): DerivatedVolatile<T, S>
 
 export function useDerivatedVolatile<T, S> (
   volatileOrArray: any,
   compute: (...a: any[]) => T,
-  deps: any[] = []
+  deps: any[] = [],
+  stable: boolean = false
 ): DerivatedVolatile<T, S> {
   const volatile = useMemo(
     () => 
@@ -502,8 +512,9 @@ export function useDerivatedVolatile<T, S> (
   )
   const derivatedVolatile = useMemo(
     () => new DerivatedVolatile(volatile, computeWrapper),
-    [volatile, computeWrapper]
+    stable? [volatile]: [volatile, computeWrapper]
   )
+  derivatedVolatile.rebind(computeWrapper)
   useEffect(() => {
     derivatedVolatile.ensureInitialized()
     return () => derivatedVolatile.dispose()
@@ -551,6 +562,6 @@ export function useDelayedDerivatedVolatile<T> (
   const auxiliary = useDerivatedVolatile(volatileOrArray, (...a: any[]) => {
     compute.apply(null, [...a, (value: any) => volatile.set(value)])
   }, deps)
-  volatile.setAuxiliary(auxiliary, KEY)
+  volatile.setAuxiliary(auxiliary)
   return volatile
 }
