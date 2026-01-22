@@ -1,13 +1,12 @@
 import React, { createContext, forwardRef, ReactNode, RefObject, useCallback,
   useContext, useId, useImperativeHandle, useMemo, useRef } from "react"
 import { Size, useThree, Canvas } from "@react-three/fiber"
-import { Camera, Scene, Vector4, WebGLRenderer } from "three"
+import { Box2, Camera, Scene, Vector4, WebGLRenderer } from "three"
 
 import { RegisterLayer } from "./Layer"
 import { ComponentVolatileRegistry } from "../../motion/Component"
 import { useVolatile, Volatile } from "../../motion/Volatile"
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
-import { ThreeBox2 } from "../../primitives/Box2"
 import { initializeRenderSteps, newRenderStepIdentifier,
   RenderStepIdentifierType, UserInterfaceStage } from "./Stages"
 import { PartiallyOrderedSet } from "../../utils/PartiallyOrderedSet"
@@ -21,7 +20,7 @@ let viewport = new Vector4()
 
 const renderWithBounds = (
   gl: WebGLRenderer,
-  bounds: ThreeBox2 | undefined,
+  bounds: Box2 | undefined,
   callback: () => void
 ) => {
   gl.getViewport(viewport)
@@ -44,7 +43,7 @@ const renderWithBounds = (
 }
 
 type RenderOptions = {
-  bounds?: ThreeBox2
+  bounds?: Box2
   renderedComponents?: { [id: ComponentIdType]: boolean }
 }
 

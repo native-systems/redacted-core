@@ -3,11 +3,11 @@ import React, { createContext, forwardRef, useContext, useEffect,
   ComponentType, ComponentProps as ReactComponentProps, ComponentPropsWithRef,
   RefObject } from "react"
 
-import { isVolatile, useDerivatedVolatile, useVolatileReady, Volatile }
-  from "./Volatile"
+import { isVolatile, PotentialVolatile, useDerivatedVolatile, useVolatileReady,
+  Volatile } from "./Volatile"
 import { Position3ValueType, Positionable, Scale3ValueType, Scalable }
-  from "../types/Space3d"
-import { ThreeVector3, Vector3 } from "../primitives/Vector3"
+  from "../primitives/ValueTypes"
+import { Vector3ConstructorExtended } from "../primitives/Constructors"
 
 
 type RegisterCallback = (volatile: Volatile<any>) => () => void
@@ -190,7 +190,7 @@ type OptionalVolatileAttributeComponentProps<
   R
 > = {
   Class: C
-  volatile: S | Volatile<S>
+  volatile: PotentialVolatile<S>
   volatileAttribute: A
   computeVolatile: ComputeVolatileCallback<
     NoInfer<S>,
@@ -228,7 +228,7 @@ const OptionalVolatileAttributeComponent = (
 )
 
 type ReplacedAttributeProps<S, A extends string, P> =
-  { [K in A]?: S | Volatile<S> } & Omit<P, A>
+  { [K in A]?: PotentialVolatile<S> } & Omit<P, A>
 
 type TypeHolder<S, A extends string, C> = C & { __type_info__?: [S, A] }
 
@@ -279,12 +279,8 @@ export const VolatilePositionComponent = VolatileAttributeComponentFactory(
   [0, 0, 0],
   (position: Position3ValueType, instance?: Positionable) => {
     if (!instance)
-      return position instanceof Vector3
-        // Some components don't accept derivated classes
-        ? { position: new ThreeVector3(position.x, position.y, position.z) }
-        : { position }
-    const vector = Vector3.create(position)
-    instance.position.set(vector.x, vector.y, vector.z)
+      return { position }
+    instance.position.copy(Vector3ConstructorExtended.create(position))
   }
 )
 
@@ -302,11 +298,8 @@ export const VolatileScaleComponent = VolatileAttributeComponentFactory(
   [1, 1, 1],
   (scale: Scale3ValueType, instance?: Scalable) => {
     if (!instance)
-      return scale instanceof Vector3
-        ? { scale: new ThreeVector3(scale.x, scale.y, scale.z) }
-        : { scale }
-    const vector = Vector3.create(scale)
-    instance.scale.set(vector.x, vector.y, vector.z)
+      return { scale }
+    instance.scale.copy(Vector3ConstructorExtended.create(scale))
   }
 )
 

@@ -6,7 +6,7 @@ import { PointerEventHandlers, usePointerEventHandlers } from "./InputManager"
 import { extractProperties } from "../utils/Properties"
 import { use3DScale } from "../utils/Transform"
 import { Volatile } from "../motion/Volatile"
-import { SizeValueType } from "../types/Space2d"
+import { SizeValueType } from "../primitives/ValueTypes"
 
 
 type EventHandlers = PointerEventHandlers

@@ -3,7 +3,7 @@ import { CanvasTexture, LinearFilter } from "three"
 import { Cache } from "../utils/Cache"
 import { ResourceHandle, useDelayedDerivatedVolatile, Volatile }
   from "../motion/Volatile"
-import { SizeValueType } from "../types/Space2d"
+import { SizeValueType } from "../primitives/ValueTypes"
 
 
 const cache = new Cache<unknown, ResourceHandle<CanvasTexture>>()

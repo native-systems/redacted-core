@@ -69,7 +69,7 @@ type UnsubscribeCallback = () => void
 
 /**
  * Represents a value or resource whose identity remains stable accross renders
- * and can be used as the source of other values.
+ * and can be used as the source of other derivated values.
  * @template T the value type
  */
 export abstract class Volatile<T> {
@@ -428,6 +428,12 @@ export const useVolatileReady = (volatile: Volatile<any>): boolean => {
 }
 
 /**
+ * Represents the union of a value type and its volatile.
+ * @template T the value type
+ */
+export type PotentialVolatile<T> = T | Volatile<T>
+
+/**
  * Hook that instantiates a volatile and optionally assigns an initial value to
  * it. The volatile is unset on unmount. If the initial value is itself a
  * volatile, it is simply returned and the set/unset logic is skipped.
@@ -436,7 +442,7 @@ export const useVolatileReady = (volatile: Volatile<any>): boolean => {
  * @returns the instantiated volatile
  */
 export const useVolatile = <T> (
-  initial: T | Volatile<T> | UndefinedValueType = UNDEFINED_VALUE
+  initial: PotentialVolatile<T> | UndefinedValueType = UNDEFINED_VALUE
 ): RootVolatile<T> => {
   const initialIsVolatile = isVolatile(initial)
   const volatile = useRef(

@@ -1,15 +1,14 @@
 import React, { ReactNode, useCallback,  useRef } from "react"
-import { DoubleSide } from "three"
+import { DoubleSide, Vector2 } from "three"
 import { ThreeElements } from "@react-three/fiber"
 
 import { Line, LineStaticProps, ThreeLine } from "../base/Line"
 import { Mesh } from "../base/Mesh"
-import { useDerivatedVolatile, useVolatile, Volatile }
+import { PotentialVolatile, useDerivatedVolatile, useVolatile, Volatile }
   from "../../motion/Volatile"
 import { Group } from "../base/Group"
-import { Vector2 } from "../../primitives/Vector2"
-import { Position3ValueType } from "../../types/Space3d"
-import { SizeValueType } from "../../types/Space2d"
+import { SizeValueType, Position3ValueType } from "../../primitives/ValueTypes"
+import { Vector2ConstructorExtended } from "../../primitives/Constructors"
 
 
 const FrameMesh = (
@@ -23,8 +22,8 @@ const FrameMesh = (
 }
 
 export type FrameProps = {
-  position: Position3ValueType | Volatile<Position3ValueType>
-  size: SizeValueType | Volatile<SizeValueType>
+  position: PotentialVolatile<Position3ValueType>
+  size: PotentialVolatile<SizeValueType>
   z?: number
   borderColor?: LineStaticProps["color"]
   borderOpacity?: LineStaticProps["opacity"]
@@ -46,7 +45,7 @@ export const Frame = (
   const line = useRef<ThreeLine>(null)
   const volatileSize = useDerivatedVolatile(
     useVolatile(size),
-    (size: SizeValueType) => Vector2.create(size)
+    (size: SizeValueType) => Vector2ConstructorExtended.create(size)
   )
 
   const computeBorderPoints = useCallback((size: Vector2) => {

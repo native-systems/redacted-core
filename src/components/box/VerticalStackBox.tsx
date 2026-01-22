@@ -1,6 +1,6 @@
 import React, { ComponentType, forwardRef, ReactNode, RefObject, useCallback,
   useEffect, useId, useImperativeHandle, useMemo, useRef } from "react"
-import { Object3D, Group as ThreeGroup } from "three"
+import { Box2, Object3D, Vector2, Vector3, Group as ThreeGroup } from "three"
 import { useFlexSize, useReflow } from "@react-three/flex"
 
 import { RootVolatile, useDerivatedVolatile, useVolatile, Volatile }
@@ -18,11 +18,7 @@ import { useLayer } from "../rendering/Layer"
 import { useRenderer } from "../rendering/Renderer"
 import { useVolatileReadinessCheck } from "../../utils/Debug"
 import { Flex, Box } from "../layout/Flex"
-import { Vector3 } from "../../primitives/Vector3"
-import { Vector2 } from "../../primitives/Vector2"
-import { ThreeBox2 } from "../../primitives/Box2"
-import { Position3ValueType } from "types/Space3d"
-import { SizeValueType } from "types/Space2d"
+import { SizeValueType, Position3ValueType } from "../../primitives/ValueTypes"
 import { LayerIdentifierType } from "../rendering/LayerStack"
 import { warn } from "../../logging/Log"
 
@@ -58,12 +54,12 @@ const MarginCorrectedBox = forwardRef(
 
     const layoutClientInterface = useMemo(() => ({
       getBounds () {
-        const position = new Vector3(0)
+        const position = new Vector3()
         if (!boxRef.current || !size.ready())
           return undefined
         boxRef.current.getWorldPosition(position)
         const [width, height] = size.current() as SizeValueType
-        return new ThreeBox2(
+        return new Box2(
           toScaled(new Vector2(position.x + 1, position.y - height + 1)),
           toScaled(new Vector2(position.x + width, position.y - 1))
         )

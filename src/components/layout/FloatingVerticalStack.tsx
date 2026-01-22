@@ -1,20 +1,19 @@
 import React, { ReactNode, useId, useMemo } from "react"
+import { Vector2, Vector3 } from "three"
 
 import { LayoutContext } from "./Layout"
 import { useRenderer } from "../rendering/Renderer"
 import { get, RootVolatile, useDerivatedVolatile, Volatile }
   from "../../motion/Volatile"
 import { L2PAV } from "../../utils/L2PAV"
-import { SizeValueType } from "../../types/Space2d"
-import { Vector2 } from "../../primitives/Vector2"
-import { ThreeVector3 } from "../../primitives/Vector3"
+import { SizeValueType } from "../../primitives/ValueTypes"
 
 
 type ComponentIdType = ReturnType<typeof useId>
 
 interface StackChild {
   id: ComponentIdType
-  output: RootVolatile<ThreeVector3>
+  output: RootVolatile<Vector3>
   size?: SizeValueType
   target?: Volatile<Vector2>
   snap?: boolean,
@@ -91,7 +90,7 @@ export const FloatingVerticalStack = (
 
       for (const [id, position] of newPositions.entries())
         stackChildren.get(id)!.output.set(
-          new ThreeVector3(...position)
+          new Vector3(...position)
         )
     },
     [stackChildren, computeX, spacing],
@@ -102,7 +101,7 @@ export const FloatingVerticalStack = (
     register (id: ComponentIdType) {
       if (stackChildren.has(id))
         return stackChildren.get(id)!.output
-      const output = new RootVolatile<ThreeVector3>
+      const output = new RootVolatile<Vector3>
       output.setAuxiliary(computeAuxiliary)
       stackChildren.set(id, { id, output })
       return output

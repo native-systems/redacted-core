@@ -1,20 +1,19 @@
 import { createContext, useId, useEffect, useContext } from "react"
+import { Vector2, Vector3 } from "three"
 
-import { useVolatile, Volatile } from "../../motion/Volatile"
-import { SizeValueType } from "../../types/Space2d"
+import { PotentialVolatile, Volatile } from "../../motion/Volatile"
+import { SizeValueType } from "../../primitives/ValueTypes"
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
-import { ThreeVector3 } from "../../primitives/Vector3"
-import { ThreeVector2 } from "../../primitives/Vector2"
 
 
 type ComponentIdType = ReturnType<typeof useId>
 
 interface LayoutInterface {
-  register (id: ComponentIdType): Volatile<ThreeVector3>
+  register (id: ComponentIdType): Volatile<Vector3>
   update (
     id: ComponentIdType,
-    size: SizeValueType | Volatile<SizeValueType>,
-    target: Volatile<ThreeVector2>,
+    size: PotentialVolatile<SizeValueType>,
+    target: Volatile<Vector2>,
     snap: boolean
   ): void
   unregister (id: ComponentIdType): void
@@ -37,10 +36,10 @@ export const LayoutContext = createContext<LayoutInterface>(
  * @returns a volatile 3D position
  */
 export const usePosition = (
-  size: SizeValueType | Volatile<SizeValueType>,
-  target: Volatile<ThreeVector2>,
+  size: PotentialVolatile<SizeValueType>,
+  target: Volatile<Vector2>,
   enabled: boolean
-): Volatile<ThreeVector3> => {
+): Volatile<Vector3> => {
   const { register, unregister, update } = useContext(LayoutContext)
   const id = useId()
   const position = register(id)

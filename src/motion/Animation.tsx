@@ -1,9 +1,10 @@
 import React, { useEffect, useId, useRef } from "react"
+import { Vector3 } from "three"
 
 import { RootVolatile, useDerivatedVolatile, Volatile } from "./Volatile"
 import { useRenderer } from "../components/rendering"
-import { Vector3ConstructorSingleParameterTypes, Vector3, ThreeVector3 }
-  from "../primitives/Vector3"
+import { Vector3ConstructorExtended, Vector3ConstructorSingleParameterTypes }
+  from "../primitives/Constructors"
 
 
 const currentAnimatedTargets = new Set()
@@ -33,7 +34,7 @@ const useAnimation = () => {
 export const useAnimatedPosition = (
   position: Volatile<Vector3ConstructorSingleParameterTypes>,
   speed: number
-): Volatile<ThreeVector3> => {
+): Volatile<Vector3> => {
   const [startAnimation, stopAnimation] = useAnimation()
   const getNow = useClock()
   const active = useRef(false)
@@ -41,12 +42,12 @@ export const useAnimatedPosition = (
   const currentPosition = useRef<Vector3>(null)
   useEffect(() => () => void stopAnimation(), [])
   return useDerivatedVolatile([position, animationSignal], (value, _) => {
-    const targetPosition = Vector3.create(value)
+    const targetPosition = Vector3ConstructorExtended.create(value)
     const now = getNow()
     if (!active.current)
       lastUpdate.current = now
     if (!currentPosition.current)
-      currentPosition.current = new Vector3(targetPosition)
+      currentPosition.current = new Vector3ConstructorExtended(targetPosition)
     if (currentPosition.current.equals(targetPosition)) {
       stopAnimation()
       active.current = false
@@ -64,7 +65,7 @@ export const useAnimatedPosition = (
       )
     currentPosition.current = nextPosition
     lastUpdate.current = now
-    return new ThreeVector3(nextPosition.x, nextPosition.y, nextPosition.z)
+    return new Vector3(nextPosition.x, nextPosition.y, nextPosition.z)
   }, [speed])
 }
 

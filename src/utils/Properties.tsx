@@ -1,7 +1,8 @@
 import React, { ComponentProps, ComponentType, useMemo } from "react"
 
-import { useDerivatedVolatile, useVolatile, Volatile } from "../motion/Volatile"
-import { SizeValueType } from "../types/Space2d"
+import { PotentialVolatile, useDerivatedVolatile, useVolatile, Volatile }
+  from "../motion/Volatile"
+import { SizeValueType } from "../primitives/ValueTypes"
 
 
 /**
@@ -31,12 +32,12 @@ const ExtractSizeImpl = <C extends ComponentType<any>> (
 }
 
 type ExtractSizeProperty = {
-  size: SizeValueType | Volatile<SizeValueType>
+  size: PotentialVolatile<SizeValueType>
 }
 
 type ExtractWidthHeightProperties = {
-  width: number | Volatile<number>
-  height: number | Volatile<number>
+  width: PotentialVolatile<number>
+  height: PotentialVolatile<number>
 }
 
 const ExtractWidthHeight = <C extends ComponentType<any>> (
@@ -77,9 +78,9 @@ const ComputeSize = <C extends ComponentType<any>> (
 }
 
 type ExtractSizeProps <C extends ComponentType<any>> = {
-  size?: SizeValueType | Volatile<SizeValueType>
-  width?: number | Volatile<number>
-  height?: number | Volatile<number>
+  size?: PotentialVolatile<SizeValueType>
+  width?: PotentialVolatile<number>
+  height?: PotentialVolatile<number>
 } & ComponentProps<C>
 
 const ExtractSize = <C extends ComponentType<any>> (

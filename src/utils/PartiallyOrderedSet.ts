@@ -8,6 +8,11 @@ class PartiallyOrderedSetGraphNode<T> {
   }
 }
 
+/**
+ * Implements a `Set` in which elements can or not be bound by some relationship
+ * e.g. `a < b`.
+ * @template T the set's elements type
+ */
 export class PartiallyOrderedSet<T> {
   private readonly nodes: Map<T, PartiallyOrderedSetGraphNode<T>>
   private readonly roots: Set<T>

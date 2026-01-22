@@ -1,10 +1,9 @@
 import React, { createContext, ReactNode, useContext, useEffect, useMemo }
   from "react"
 import { createPortal, useThree } from "@react-three/fiber"
-import { Scene } from "three"
+import { Scene, Vector2 } from "three"
 
 import { useRenderer } from "./Renderer"
-import { Vector2 } from "../../primitives/Vector2"
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
 import { RenderStepIdentifierType } from "./Stages"
 

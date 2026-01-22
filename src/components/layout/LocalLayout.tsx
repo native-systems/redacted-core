@@ -1,11 +1,10 @@
 import React, { ComponentType, createContext, ReactNode, RefObject, useContext,
   useMemo } from "react"
-
-import { ThreeBox2 } from "../../primitives/Box2"
+import { Box2 } from "three"
 
 
 export interface LocalLayoutClientContainer {
-  getBounds (): ThreeBox2 | undefined
+  getBounds (): Box2 | undefined
 }
 
 export interface LocalLayoutClientContainerProps {

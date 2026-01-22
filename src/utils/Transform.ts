@@ -1,10 +1,10 @@
-import { SizeValueType } from "../types/Space2d"
+import { SizeValueType } from "../primitives/ValueTypes"
 import { useDerivatedVolatile, Volatile } from "../motion/Volatile"
 
 
 /**
  * Converts a 2D size object to a 3D scale.
- * @param size a volatile {@link SizeValueType} pair
+ * @param size a volatile {@link SizeValueType}
  * @returns a volatile `[width, height, 1]`
  */
 export const use3DScale = 
