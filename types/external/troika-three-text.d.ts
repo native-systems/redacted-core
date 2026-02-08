@@ -1,12 +1,12 @@
 // https://github.com/protectwise/troika/issues/214#issuecomment-1867037294
 
 declare module "troika-three-text" {
-  import type { BufferGeometry, Color, Material, MeshBasicMaterial,
-    MeshStandardMaterial } from "three"
+  import type { BufferGeometry, Color, Material } from "three"
+  import { ReactNode } from "react"
   import { Object3D } from "three"
 
   export class Text extends Object3D {
-    constructor();
+    constructor ()
 
     text: string
     fontSize: number
@@ -16,7 +16,7 @@ declare module "troika-three-text" {
     lineHeight: number
     letterSpacing: number
     textAlign: 'left' | 'right' | 'center' | 'justify'
-    material: MeshBasicMaterial | MeshStandardMaterial
+    material: Material
     anchorX: 'left' | 'center' | 'right' | number
     anchorY: 'top' | 'middle' | 'bottom' | 'baseline' | number
     clipRect: [number, number, number, number]
@@ -49,7 +49,10 @@ declare module "troika-three-text" {
 
   // Properties of `<troikaText>` element
   export interface TroikaElements {
-    troikaText: { ref: RefObject<Text> } & Partial<Text>
+    troikaText: {
+      ref: RefObject<Text>
+      children: ReactNode
+    } & Omit<Partial<Text>, "children">
   }
 }
 

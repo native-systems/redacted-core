@@ -371,32 +371,42 @@ export const isVolatile = (object: any): boolean =>
 /**
  * Returns the resource held by a handle in a volatile.
  * @param value the volatile to retrieve the value from
+ * @param _default an optional default value
  */
-export function get <T> (value: Volatile<ResourceHandle<T>>): T
+export function get <T, D = never> (
+  value: Volatile<ResourceHandle<T>>,
+  _default?: D
+): T | D
 
 /**
  * Returns a volatile value.
  * @param value the volatile to retrieve the value from
+ * @param _default an optional default value
  */
-export function get <T> (value: Volatile<T>): T
+export function get <T, D = never> (value: Volatile<T>, _default?: D): T | D
 
 /**
  * Returns a value.
  * @param value the value to return
+ * @param _default this parameter will be ignored
  */
-export function get <T> (value: T): T
+export function get <T, D = never> (value: T, _default?: D): T | D
 
 /**
  * Helper function to retrieve the actual value from a potential volatile, or
  * the resource if it is a resource handle wrapped in a volatile.
- * @param object The object to retrieve the value from
- * @returns The volatile or resource handle value or the object itself
+ * @param object the object to retrieve the value from
+ * @param _default a default value to return if the volatile is not ready
+ * @returns the volatile or resource handle value or the object itself
  */
-export function get (object: any) {
+export function get (object: any, _default: any = UNDEFINED_VALUE) {
   if (!isVolatile(object))
     return object
-  if (!object.ready())
-    throw new Error("Attempted accessing a non-ready volatile")
+  if (!object.ready()) {
+    if (_default !== UNDEFINED_VALUE)
+      return _default
+    throw new Error("Attempted to access a non-ready volatile")
+  }
   return isResourceHandle(object.current())
     ? object.current().resource
     : object.current()
@@ -404,7 +414,7 @@ export function get (object: any) {
 
 /**
  * Hook that returns whether the specified volatile is ready for use.
- * @param volatile The volatile to monitor the readiness from
+ * @param volatile the volatile to monitor the readiness from
  * @returns `true` if the volatile is ready for use, `false` otherwise
  */
 export const useVolatileReady = (volatile: Volatile<any>): boolean => {
@@ -452,7 +462,10 @@ export const useVolatile = <T> (
   useEffect(() => {
     if (initialIsVolatile)
       return
-    volatile.set(initial)
+    // Something else (e.g. a child component) may have set a value to this
+    // volatile before this effect got a chance to run; do not overwrite it.
+    if (!volatile.ready())
+      volatile.set(initial)
     return () => volatile.unset()
   }, [volatile])
 

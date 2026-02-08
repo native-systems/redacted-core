@@ -65,15 +65,12 @@ interface RequireProps {
  * @param props.volatile The volatile which will be awaited
  * @param props.children The child component tree which has a dependency on it
  */
-export const Require = ({ volatile, children }: RequireProps) => {
-  const auxiliaries = volatile.getAuxiliaries()
-  return (
-    <>
-      <Resolve volatile={volatile} />
-      {useVolatileReady(volatile)? <>{children}</>: <></>}
-    </>
-  )
-}
+export const Require = ({ volatile, children }: RequireProps) => (
+  <>
+    <Resolve volatile={volatile} />
+    {useVolatileReady(volatile)? <>{children}</>: <></>}
+  </>
+)
 
 type ExtractRefValueType<T> = T extends RefObject<infer V>? V: never
 

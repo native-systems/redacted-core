@@ -1,6 +1,6 @@
-import React, { ReactNode, RefObject, useCallback, useEffect, useRef,
-  useImperativeHandle} from "react"
-import { Box3 } from "three"
+import React, { ReactNode, RefObject, useCallback, useRef, useImperativeHandle,
+  useMemo } from "react"
+import { Box3, ColorRepresentation } from "three"
 import { extend } from "@react-three/fiber"
 import { Text as TroikaText } from "troika-three-text"
 
@@ -10,9 +10,13 @@ import { LocalLayoutClient, useLocalLayoutSettings, useNotifySizeChanged }
   from "../layout/LocalLayout"
 import { VolatileAttributeComponent } from "../../motion/Component"
 import { useRenderer } from "../rendering/Renderer"
-import { useVolatile, Volatile } from "../../motion/Volatile"
+import { useVolatile, Volatile }
+  from "../../motion/Volatile"
 import { warn } from "../../logging/Log"
 import { inspectRoot } from "../../utils/Debug"
+import { BasicShaderMaterial } from "../../shading/BasicShaderMaterial"
+import { ExtendedShaderMaterial }
+  from "../../shading/ShaderMaterialExtensionContext"
 
 
 extend({ TroikaText })
@@ -33,40 +37,48 @@ const TextBase = (
   const notifySizeChanged = useNotifySizeChanged()
   const { invalidate } = useRenderer()
 
-  useEffect(() => {
-    const onSyncComplete = () => {
-      if (!childRef.current)
-        return
-      if (onResize && childRef.current.geometry.boundingBox)
-        onResize(childRef.current.geometry.boundingBox)
-      notifySizeChanged()
-      invalidate()
-    }
-    const textObject = childRef.current
-    if (!textObject)
+  const material = useMemo(
+    () => new BasicShaderMaterial({ color: theme.fonts[type].color }),
+    [theme]
+  )
+
+  const onSyncComplete = useCallback(() => {
+    if (!childRef.current)
       return
-    textObject.addEventListener("synccomplete", onSyncComplete)
-    return (
-      () => textObject.removeEventListener("synccomplete", onSyncComplete)
-    )
-  }, [onResize])
+    if (onResize && childRef.current.geometry.boundingBox)
+      onResize(childRef.current.geometry.boundingBox)
+    notifySizeChanged()
+    invalidate()
+  }, [invalidate, notifySizeChanged])
+
+  const bindRef = useCallback((textObject: TroikaText) => {
+    if (textObject) {
+      childRef.current = textObject
+      textObject.addEventListener("synccomplete", onSyncComplete)
+    }
+    else {
+      childRef.current?.removeEventListener("synccomplete", onSyncComplete)
+      childRef.current = null
+    }
+  }, [])
 
   // TODO: review this
   useImperativeHandle(ref, () => childRef.current!)
 
   return (
     <troikaText
-      ref={childRef}
+      ref={bindRef}
       font={theme.fonts[type].path}
       fontSize={theme.fonts[type].size}
       position-z={2}
       text={text}
       maxWidth={bounds.maxInnerWidth}
       textAlign={theme.fonts[type].align}
-      color={theme.fonts[type].color}
       fontWeight={theme.fonts[type].weight}
       overflowWrap={"break-word"}
-      />
+      >
+      <ExtendedShaderMaterial material={material} />
+    </troikaText>
   )
 }
 

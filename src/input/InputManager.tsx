@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: 2025-2026 Native Systems
-// SPDX-License-Identifier: Apache-2.0
-
 import React, { ComponentType, createContext, ReactNode, useCallback,
     useContext, useEffect, useMemo } from 'react'
 
@@ -70,10 +67,10 @@ const PointerInputManager = ({ children }: { children: ReactNode }) => {
     () => ({
       getEventHandlers: (onFocus, onBlur) => ({
         onPointerEnter (e) {
-          if (onFocus) onFocus(e)
+          onFocus?.(e)
         },
         onPointerLeave (e) {
-          if (onBlur) onBlur(e)
+          onBlur?.(e)
         }
       }) 
     }),

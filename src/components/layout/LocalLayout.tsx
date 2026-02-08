@@ -2,9 +2,13 @@ import React, { ComponentType, createContext, ReactNode, RefObject, useContext,
   useMemo } from "react"
 import { Box2 } from "three"
 
+import { PotentialVolatile, Volatile } from "../../motion/Volatile"
+import { useRenderer } from "../../components/rendering"
+import { warn } from "../../logging/Log"
+
 
 export interface LocalLayoutClientContainer {
-  getBounds (): Box2 | undefined
+  computedBounds: Volatile<Box2>
 }
 
 export interface LocalLayoutClientContainerProps {
@@ -34,6 +38,7 @@ interface LocalLayoutInterface {
   clientWrapperClass?: ComponentType<LocalLayoutClientContainerProps>
   settings: LocalLayoutSettingsInterface
   notifySizeChanged: () => void
+  computedBounds?: Volatile<Box2>
 }
 
 const defaultLocalLayout = {
@@ -49,7 +54,8 @@ const defaultLocalLayout = {
     maxOuterWidth: undefined,
     maxOuterHeight: undefined
   },
-  notifySizeChanged: () => undefined
+  notifySizeChanged: () => undefined,
+  computedBounds: undefined
 }
 
 const LocalLayoutContext =
@@ -71,6 +77,20 @@ export const useLocalLayoutSettings =
 export const useNotifySizeChanged =
   () => useContext(LocalLayoutContext).notifySizeChanged
 
+/**
+ * Returns the allowed bounds for the current local layout client.
+ * @returns a {@link Box2} volatile or static value
+ */
+export const useComputedBounds = (): PotentialVolatile<Box2> => {
+  const { bounds } = useRenderer()
+  const computedBounds = useContext(LocalLayoutContext).computedBounds
+  __DEBUG_STATEMENT__: {
+    if (!computedBounds)
+      warn("Local layout computed bounds are not available.")
+  }
+  return computedBounds || bounds
+}
+
 const defaultClientWrapperClass =
   ({ children }: { children?: ReactNode }) => <>{children}</>
 
@@ -78,6 +98,7 @@ type LocalLayoutProps = {
   children: ReactNode
   clientWrapperClass?: ComponentType<LocalLayoutClientContainerProps>
   notifySizeChanged?: () => void
+  computedBounds?: Volatile<Box2>
   reset?: boolean
 } & Partial<LocalLayoutSettingsInterface>
 
@@ -98,6 +119,7 @@ export const LocalLayout = (props: LocalLayoutProps) => {
       inheritedClientWrapperClass || defaultClientWrapperClass
     ),
     notifySizeChanged = () => undefined,
+    computedBounds = undefined,
     reset = false,
     children,
     ...overrideSettings
@@ -108,12 +130,14 @@ export const LocalLayout = (props: LocalLayoutProps) => {
   const localLayout = useMemo(
     () => ({
       clientWrapperClass: reset? defaultClientWrapperClass: clientWrapperClass,
+      settings: {...inheritedSettings, ...overrideSettings},
       notifySizeChanged,
-      settings: {...inheritedSettings, ...overrideSettings}
+      computedBounds
     }),
     [
       clientWrapperClass,
       notifySizeChanged,
+      computedBounds,
       reset,
       inheritedSettings,
       overrideSettings

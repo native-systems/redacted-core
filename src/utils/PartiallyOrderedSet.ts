@@ -1,11 +1,8 @@
 class PartiallyOrderedSetGraphNode<T> {
-  public readonly upstream: Set<T>
-  public readonly downstream: Set<T>
-
-  constructor () {
-    this.upstream = new Set()
-    this.downstream = new Set()
-  }
+  constructor(
+    public readonly upstream: Set<T> = new Set(),
+    public readonly downstream: Set<T> = new Set()
+  ) { }
 }
 
 /**

@@ -1,32 +1,47 @@
-import React, { RefObject, useEffect, useId, useMemo, useRef } from "react"
+import React, { useEffect, useId, useMemo, useRef } from "react"
+import { Box2, Vector2 } from "three"
 
 import { RendererInterface, useRenderer } from "../rendering/Renderer"
-import { LocalLayoutClient, LocalLayoutClientContainer, useLocalLayoutSettings }
+import { LocalLayoutClient, useComputedBounds, useLocalLayoutSettings }
   from "../layout/LocalLayout"
 import { Resolve } from "../../motion/Component"
-import { useDerivatedVolatile } from "../../motion/Volatile"
+import { get, useDerivatedVolatile, useVolatile, Volatile }
+  from "../../motion/Volatile"
 import { newRenderStepIdentifier, SubviewStage } from "../rendering/Stages"
 
 
+const MAX_RENDERS_PER_COMPONENT = 3
+
 type MiniViewImplProps = {
-  containerRef: RefObject<LocalLayoutClientContainer | null>
   renderer: RendererInterface
+  width: number
   height: number
 }
 
-const MiniViewImpl = (
-  { containerRef, renderer, height }: MiniViewImplProps
-) => {
+const MiniViewImpl = ({ renderer, width, height }: MiniViewImplProps) => {
   const { invalidate, registerRenderer, beforeRenderSignal } = useRenderer()
   const bounds = useLocalLayoutSettings()
+  const computedBounds = useComputedBounds()
   const id = useId()
   const renderStepIdentifier = useMemo(() => newRenderStepIdentifier(), [])
+  const rendered = useRef(false)
 
-  // This resolver symbol is used to bind the parent renderer pre-rendering step
-  // to the child's renderer.
+  const innerBounds: Volatile<Box2> = useDerivatedVolatile(
+    useVolatile(computedBounds), 
+    ({ min, max }) => new Box2(
+      new Vector2(min.x + 1, min.y + 1),
+      new Vector2(max.x - 1, max.y - 1)
+    )
+  )
+
   const resolver = useDerivatedVolatile(
     beforeRenderSignal,
-    () => renderer.resolveComponentVolatiles()
+    () => {
+      // TODO: verify that the mesh's onBeforeRender routine is executed before
+      // this symbol is resolved
+      if (rendered)
+        renderer.resolveComponentVolatiles()
+    }
   )
 
   useEffect(() => {
@@ -37,19 +52,26 @@ const MiniViewImpl = (
       [SubviewStage.start],
       [SubviewStage.end],
       (options) => {
-        if (!containerRef.current)
+        // Skip rendering if the subview is not visible (outside the frustrum)
+        if (!rendered)
           return
-        const bounds = containerRef.current.getBounds()
+        const bounds = get(innerBounds, null)
         if (!bounds)
           return
         const { renderedComponents = {} } = options
-        if (id in renderedComponents)
+        if ((renderedComponents[id] ?? 0) >= MAX_RENDERS_PER_COMPONENT)
           return
-        return renderer.render({
-          bounds: containerRef.current.getBounds(),
-          ...options,
-          renderedComponents: { ...renderedComponents, [id]: true }
+        renderer.subview(bounds, () => {
+          renderer.render({
+            disableClear: true,
+            ...options,
+            renderedComponents: {
+              ...renderedComponents,
+              [id]: (renderedComponents[id] ?? 0) + 1
+            }
+          })
         })
+        rendered.current = false
       }
     )
     return () => {
@@ -58,7 +80,20 @@ const MiniViewImpl = (
     }
   }, [registerRenderer, renderStepIdentifier, renderer, id, bounds, height])
 
-  return <Resolve volatile={resolver} />
+  return (
+    <>
+      <Resolve volatile={resolver} />
+      <Resolve volatile={innerBounds} />
+      <mesh onBeforeRender={() => rendered.current = true}
+        position={[1, 1, 0]}
+        scale={[width, height, 1]}
+        visible={true}
+        >
+        <planeGeometry />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
+    </>
+  )
 }
 
 type MiniViewProps = {
@@ -81,7 +116,6 @@ export const MiniView = (
   { renderer, width, height }: MiniViewProps
 ) => {
   const bounds = useLocalLayoutSettings()
-  const containerRef = useRef<LocalLayoutClientContainer>(null)
 
   const computedWidth = width ?? bounds.maxInnerWidth ?? Infinity
   const computedHeight = height ??
@@ -91,15 +125,11 @@ export const MiniView = (
     throw new Error("Local layout doesn't specify a maxInnerWidth")
 
   return (
-    <LocalLayoutClient
-      ref={containerRef}
-      height={computedHeight}
-      width={computedWidth}
-      >
+    <LocalLayoutClient>
       <MiniViewImpl
-        containerRef={containerRef}
         renderer={renderer}
-        height={computedHeight}
+        width={computedWidth - 2}
+        height={computedHeight - 2}
         />
     </LocalLayoutClient>
   )

@@ -1,7 +1,7 @@
 import React, { createContext, forwardRef, ReactNode, RefObject, useCallback,
   useContext, useId, useImperativeHandle, useMemo, useRef } from "react"
 import { Size, useThree, Canvas } from "@react-three/fiber"
-import { Box2, Camera, Scene, Vector4, WebGLRenderer } from "three"
+import { Box2, Camera,  Scene, Vector2, Vector4, WebGLRenderer } from "three"
 
 import { RegisterLayer } from "./Layer"
 import { ComponentVolatileRegistry } from "../../motion/Component"
@@ -12,39 +12,66 @@ import { initializeRenderSteps, newRenderStepIdentifier,
 import { PartiallyOrderedSet } from "../../utils/PartiallyOrderedSet"
 import { error } from "../../logging/Log"
 import { inspectRoot } from "../../utils/Debug"
+import { Matrix3 } from "three"
 
+
+/**
+ * Used by shaders to compute physical (device pixel space) coordinates of
+ * objects.
+ */
+export const physicalSubviewMatrix = new Matrix3()
+
+const viewToSubviewMatrix = (view: Box2, subview: Box2) => {
+  const sx = (subview.max.x - subview.min.x) / (view.max.x - view.min.x)
+  const sy = (subview.max.y - subview.min.y) / (view.max.y - view.min.y)
+  const tx = subview.min.x - view.min.x * sx
+  const ty = subview.min.y - view.min.y * sy
+  return new Matrix3(
+    sx, 0, tx,
+    0, sy, ty,
+    0, 0, 1
+  )
+}
+
+// Sets up the viewport and shader uniforms to enable a full render of the scene
+// in a subrectangle of the output canvas. Can be called recursively.
+const executeInSubview = (
+  gl: WebGLRenderer,
+  screenBounds: Box2,
+  localSubview: Box2,
+  callback: () => void
+) => {
+  const dpr = gl.getPixelRatio()
+  localSubview.min.multiplyScalar(dpr)
+  localSubview.max.multiplyScalar(dpr)
+  const savedSubviewMatrix = physicalSubviewMatrix.clone()
+  physicalSubviewMatrix.multiply(
+    viewToSubviewMatrix(screenBounds, localSubview)
+  )
+  screenBounds.min.applyMatrix3(physicalSubviewMatrix)
+  screenBounds.max.applyMatrix3(physicalSubviewMatrix)
+  const subview = new Vector4(
+    screenBounds.min.x / dpr,
+    screenBounds.min.y / dpr,
+    (screenBounds.max.x - screenBounds.min.x) / dpr,
+    (screenBounds.max.y - screenBounds.min.y) / dpr
+  )
+  const savedViewport = new Vector4()
+  gl.getViewport(savedViewport)
+  gl.setViewport(subview)
+  gl.setScissor(subview)
+  gl.setScissorTest(true)
+  callback()
+  gl.setScissorTest(false)
+  gl.setViewport(savedViewport)
+  physicalSubviewMatrix.copy(savedSubviewMatrix)
+}
 
 type ComponentIdType = ReturnType<typeof useId>
 
-let viewport = new Vector4()
-
-const renderWithBounds = (
-  gl: WebGLRenderer,
-  bounds: Box2 | undefined,
-  callback: () => void
-) => {
-  gl.getViewport(viewport)
-  // TODO: change the logic to allow a renderer to set bounds when entering or
-  // exiting a rendering context instead of setting them with each render
-  if (bounds) {
-    const x = bounds.min.x
-    const y = bounds.min.y
-    const width = bounds.max.x - x
-    const height = bounds.max.y - y
-    gl.setViewport(x, y, width, height)
-    gl.setScissor(x, y, width, height) 
-    gl.setScissorTest(true)
-  }
-  callback()
-  if (bounds) {
-    gl.setScissorTest(false)
-    gl.setViewport(viewport)
-  }
-}
-
 type RenderOptions = {
-  bounds?: Box2
-  renderedComponents?: { [id: ComponentIdType]: boolean }
+  disableClear?: boolean
+  renderedComponents?: { [id: ComponentIdType]: number }
 }
 
 const renderLayer = (
@@ -54,13 +81,10 @@ const renderLayer = (
   gl: WebGLRenderer,
   options: RenderOptions = {}
 ) => {
-  const { bounds } = options
-
-  renderWithBounds(gl, bounds, () => {
-    gl.autoClear = clear && !bounds
-    gl.clearDepth()
-    gl.render(scene, camera)
-  })
+  const { disableClear } = options
+  gl.autoClear = clear && !disableClear
+  gl.clearDepth()
+  gl.render(scene, camera)
 }
 
 const registerVolatile = (
@@ -150,7 +174,9 @@ type Unregister = () => void
 
 export interface RendererInterface {
   size: Size
+  bounds: Box2
   beforeRenderSignal: Volatile<number>
+  getPixelRatio (): number
   invalidate (): void
   attachOnInvalidate (handler: () => void): Unregister
   registerLayer (
@@ -168,6 +194,7 @@ export interface RendererInterface {
     renderer: RenderRoutine
   ): Unregister
   resolveComponentVolatiles (): void
+  subview (bounds: Box2, callback: () => void): void
   render (options?: RenderOptions): void
 }
 
@@ -194,6 +221,18 @@ export const Renderer = forwardRef(
     // nestable one.
     const gl = useThree(state => state.gl)
     const size = useThree(state => state.size)
+    const bounds = useMemo(
+      () => {
+        const viewport = new Vector4()
+        const dpr = gl.getPixelRatio()
+        gl.getViewport(viewport)
+        return new Box2(
+          new Vector2(viewport.x * dpr, viewport.y * dpr),
+          new Vector2(viewport.z * dpr, viewport.w * dpr)
+        )
+      },
+      [size]
+    )
     const volatileRegistry = useMemo(
       () => new PartiallyOrderedSet<Volatile<any>>(),
       []
@@ -230,8 +269,12 @@ export const Renderer = forwardRef(
 
     const rendererInterface: RendererInterface = useMemo(() => ({
       size: size,
+      bounds: bounds,
       beforeRenderSignal,
       invalidate,
+      getPixelRatio () {
+        return gl.getPixelRatio()
+      },
       attachOnInvalidate (handler) {
         if (handler == invalidate)
           return () => undefined
@@ -271,10 +314,20 @@ export const Renderer = forwardRef(
         sortedVolatiles.current.forEach((volatile) => volatile.current())
         symbolResolutionInProgress.current = false
       },
+      subview (viewBounds: Box2, callback: () => void) {
+        executeInSubview(gl, bounds.clone(), viewBounds.clone(), callback)
+      },
       render (options = {}) {
         sortedRenderStepsRef.current.forEach((render) => render(options))
       }
-    }), [size, beforeRenderSignal, renderStepIdentifiers, renderSteps, gl])
+    }), [
+      gl,
+      size,
+      bounds,
+      beforeRenderSignal,
+      renderStepIdentifiers,
+      renderSteps
+    ])
 
     useImperativeHandle(ref, () => rendererInterface, [rendererInterface])
 

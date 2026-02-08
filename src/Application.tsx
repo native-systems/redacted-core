@@ -75,13 +75,14 @@ export const Application = (
         eventSource={eventSource}
         eventPrefix="client"
         frameloop='demand'
-        gl={
-          (domElement) => new WebGLRenderer({
+        gl={(domElement) => {
+          return new WebGLRenderer({
             canvas: domElement.canvas,
             antialias: true,
             powerPreference: "high-performance"
+
           })
-        }
+        }}
         >
         <MainScene
           MainCameraClass={MainCameraClass}
