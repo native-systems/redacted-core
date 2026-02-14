@@ -7,6 +7,7 @@ import { Vector2ConstructorExtended, Vector3ConstructorExtended,
   Vector3ConstructorSingleParameterTypes } from "../primitives/Constructors"
 import { SizeValueType } from "../primitives/ValueTypes"
 import { use3DScale } from "../utils/Transform"
+import { useTheme } from "../configuration/Theme"
 
 
 const currentAnimatedTargets = new Set()
@@ -65,46 +66,37 @@ const useAnimatedLinearVector3 = (
 }
 
 /**
- * Derives a volatile position which converges to the target at maximum `speed` 
- * spatial units per second.
+ * Derives a volatile position.
  * @param position the target position volatile
- * @param speed the position rate of change
  * @returns the derived position volatile
  */
 export const useAnimatedPosition = (
-  position: Volatile<Vector3ConstructorSingleParameterTypes>,
-  speed: number
+  position: Volatile<Vector3ConstructorSingleParameterTypes>
 ): Volatile<Vector3> => (
-  useAnimatedLinearVector3(position, speed)
+  useAnimatedLinearVector3(position, useTheme().animation.speed)
 )
 
 /**
- * Derives a volatile scale which converges to the target at maximum `speed`
- * spatial units per second.
+ * Derives a volatile scale.
  * @param scale the target scale volatile
- * @param speed the scale rate of change
  * @returns the derived scale volatile
  */
 export const useAnimatedScale = (
-  scale: Volatile<Vector3ConstructorSingleParameterTypes>,
-  speed: number
+  scale: Volatile<Vector3ConstructorSingleParameterTypes>
 ): Volatile<Vector3> => (
-  useAnimatedLinearVector3(scale, speed)
+  useAnimatedLinearVector3(scale, useTheme().animation.speed)
 )
 
 /**
- * Derives a volatile size which converges to the target at maximum `speed`
- * spatial units per second.
+ * Derives a volatile size.
  * @param size the target scale volatile
- * @param speed the scale rate of change
  * @returns the derived scale volatile
  */
 export const useAnimatedSize = (
-  size: Volatile<SizeValueType>,
-  speed: number
+  size: Volatile<SizeValueType>
 ): Volatile<Vector2> => (
   useDerivatedVolatile(
-    useAnimatedLinearVector3(use3DScale(size), speed),
+    useAnimatedLinearVector3(use3DScale(size), useTheme().animation.speed),
     ([width, height, _]) => new Vector2ConstructorExtended(width, height)
   )
 )

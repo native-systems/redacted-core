@@ -4,14 +4,8 @@ import _ from "lodash"
 import { NotImplementedProxy } from "../utils/NotImplementedProxy"
 
 
-interface FontConfiguration {
-  path: string
-  size: number
-  weight?: "normal" | "bold"
-  align?: "left" | "right"
-  color?: string
-  wordBreak?: string
-  transform?: (text: string) => string
+interface AnimationConfiguration {
+  speed: number
 }
 
 interface BoxConfiguration {
@@ -24,6 +18,16 @@ interface BoxConfiguration {
   borderOpacity: number
 }
 
+interface FontConfiguration {
+  path: string
+  size: number
+  weight?: "normal" | "bold"
+  align?: "left" | "right"
+  color?: string
+  wordBreak?: string
+  transform?: (text: string) => string
+}
+
 export type ColorProfiles = "primary"
 
 export const DefaultFontProfile = "normal" as const
@@ -33,10 +37,10 @@ export type FontProfiles =
 
 export interface ThemeConfiguration {
   scale: number
+  animation: AnimationConfiguration
   box: BoxConfiguration
   colors: { [ K in ColorProfiles]: string}
   fonts: { [K in FontProfiles]: FontConfiguration }
-
 }
 
 const ThemeContext = createContext(

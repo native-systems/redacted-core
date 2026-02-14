@@ -386,6 +386,16 @@ export function get <T, D = never> (
 export function get <T, D = never> (value: Volatile<T>, _default?: D): T | D
 
 /**
+ * Returns a static or volatile value.
+ * @param value the static or volatile to retrieve the value from
+ * @param _default an optional default value
+ */
+export function get <T, D = never> (
+  value: PotentialVolatile<T>,
+  _default?: D
+): T | D
+
+/**
  * Returns a value.
  * @param value the value to return
  * @param _default this parameter will be ignored
@@ -394,7 +404,8 @@ export function get <T, D = never> (value: T, _default?: D): T | D
 
 /**
  * Helper function to retrieve the actual value from a potential volatile, or
- * the resource if it is a resource handle wrapped in a volatile.
+ * the resource if it is a resource handle wrapped in a volatile. If not ready
+ * and no default value is supplied, throws an error.
  * @param object the object to retrieve the value from
  * @param _default a default value to return if the volatile is not ready
  * @returns the volatile or resource handle value or the object itself

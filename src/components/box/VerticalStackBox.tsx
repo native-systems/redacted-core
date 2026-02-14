@@ -3,15 +3,15 @@ import React, { ComponentType, createContext, ReactNode, RefObject,
 import { Box2, Object3D, Vector2, Vector3, Group as ThreeGroup } from "three"
 import { useFlexSize, useReflow } from "@react-three/flex"
 
-import { RootVolatile, useDelayedDerivatedVolatile, useDerivatedVolatile, useVolatile, Volatile }
-  from "../../motion/Volatile"
+import { get, RootVolatile, useDelayedDerivatedVolatile, useDerivatedVolatile,
+  useVolatile, Volatile } from "../../motion/Volatile"
 import { Group } from "../base/Group"
 import { UpperLayerTransport } from "../rendering/UpperLayerTransport"
 import { useBoundingBox } from "../../tracking/BoundingBox"
 import { usePosition } from "../layout/Layout"
 import { useAnimatedPosition, useAnimatedSize } from "../../motion/Animation"
 import { useTheme } from "../../configuration/Theme"
-import { LocalLayout, LocalLayoutClientContainerProps }
+import { LocalLayout, LocalLayoutClientContainerProps, useComputedBounds }
   from "../layout/LocalLayout"
 import { Frame, FrameProps } from "./Frame"
 import { useLayer } from "../rendering/Layer"
@@ -63,6 +63,7 @@ const MarginCorrectedBox = (
   const size = useVolatile<Vector2>()
   const boxRef = useRef<ThreeGroup>(null)
   const stackPosition = useContext(StackPositionContext)
+  const stackComputedBounds = useComputedBounds()
 
   let position = new Vector3()
 
@@ -82,7 +83,7 @@ const MarginCorrectedBox = (
             position.x + width - marginRight,
             position.y + marginBottom
           ))
-        )
+        ).intersect(get(stackComputedBounds))
       )
     }
   )
@@ -108,18 +109,25 @@ const MarginCorrectedBox = (
 type VerticalStackBoxImplProps = {
   position: Volatile<Position3ValueType>
   size: RootVolatile<Vector2>
+  animatedSize: Volatile<Vector2>
 } & CommonBoxProps
 
 const VerticalStackBoxImpl = (
-  { position, size, children, FrameClass = Frame }: VerticalStackBoxImplProps
+  {
+    position,
+    size,
+    animatedSize,
+    children,
+    FrameClass = Frame
+  }: VerticalStackBoxImplProps
 ) => {
   const { invalidate } = useRenderer()
   const { transform: { toScaled } } = useLayer()
   const theme = useTheme()
-  const animatedPosition = useAnimatedPosition(position, 2000)
+  const animatedPosition = useAnimatedPosition(position)
 
   const computedBounds = useDerivatedVolatile(
-    [animatedPosition, size],
+    [animatedPosition, animatedSize],
     (position, [width, height]) => (
       new Box2(
         toScaled(new Vector2(position.x, position.y - height)),
@@ -129,7 +137,7 @@ const VerticalStackBoxImpl = (
   )
 
   const framePosition = useDerivatedVolatile(
-    size,
+    animatedSize,
     ([width, height]) => [width / 2, -height / 2, 0]
   )
 
@@ -154,7 +162,7 @@ const VerticalStackBoxImpl = (
     <Group position={animatedPosition}>
       <FrameClass
         position={framePosition}
-        size={size}
+        size={animatedSize}
         color={theme.box.backgroundColor}
         opacity={theme.box.backgroundOpacity}
         borderColor={theme.box.borderColor}
@@ -191,7 +199,7 @@ const TargetPositionedVerticalStackBox = (
   const { transform: { fromNormalized } } = useLayer()
   const targetBoundingBox = useBoundingBox(target)
   const size = useVolatile(new Vector2())
-  const animatedSize = useAnimatedSize(size, 2000)
+  const animatedSize = useAnimatedSize(size)
   const wants = useDerivatedVolatile(
     targetBoundingBox,
     box => fromNormalized(box.max),
@@ -208,6 +216,7 @@ const TargetPositionedVerticalStackBox = (
     <VerticalStackBoxImpl
       position={position}
       size={size}
+      animatedSize={animatedSize}
       {...props}
       />
   )
@@ -227,6 +236,7 @@ const FixedPositionedVerticalStackBox = (
     <VerticalStackBoxImpl
       position={volatilePosition}
       size={size}
+      animatedSize={size}
       {...props}
       />
   )
