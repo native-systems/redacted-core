@@ -8,7 +8,7 @@ import { warn } from "../../logging/Log"
 
 
 export interface LocalLayoutClientContainer {
-  computedBounds: Volatile<Box2>
+  computedBounds: PotentialVolatile<Box2>
 }
 
 export interface LocalLayoutClientContainerProps {
@@ -38,7 +38,7 @@ interface LocalLayoutInterface {
   clientWrapperClass?: ComponentType<LocalLayoutClientContainerProps>
   settings: LocalLayoutSettingsInterface
   notifySizeChanged: () => void
-  computedBounds?: Volatile<Box2>
+  computedBounds?: PotentialVolatile<Box2>
 }
 
 const defaultLocalLayout = {
@@ -108,6 +108,7 @@ type LocalLayoutProps = {
  * clients will be wrapped into a `clientWrapperClass` if specified.
  * @param props.clientWrapperClass an optional local layout client wrapper
  * @param props.reset if `true`, uses the default settings
+ * @param props.computedBounds an optional {@link Box2} providing bounds
  * @param props.notifySizeChanged an optional callback to handle client resize
  * @param props optional override settings
  */
@@ -119,7 +120,7 @@ export const LocalLayout = (props: LocalLayoutProps) => {
       inheritedClientWrapperClass || defaultClientWrapperClass
     ),
     notifySizeChanged = () => undefined,
-    computedBounds = undefined,
+    computedBounds = useComputedBounds(),
     reset = false,
     children,
     ...overrideSettings

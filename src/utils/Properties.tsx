@@ -3,6 +3,7 @@ import React, { ComponentProps, ComponentType, useMemo } from "react"
 import { PotentialVolatile, useDerivatedVolatile, useVolatile, Volatile }
   from "../motion/Volatile"
 import { SizeValueType } from "../primitives/ValueTypes"
+import { useVolatileVector2Size } from "../primitives/Normalizers"
 
 
 /**
@@ -45,7 +46,7 @@ const ExtractWidthHeight = <C extends ComponentType<any>> (
     ExtractSizeProperty
       & ComponentPropsWithoutExtracted<C>
 ) => {
-  const volatileSize = useVolatile(size)
+  const volatileSize = useVolatileVector2Size(size)
   return (
     <ExtractSizeImpl
       size={volatileSize}

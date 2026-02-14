@@ -4,6 +4,7 @@ import { Vector2, Vector3 } from "three"
 import { PotentialVolatile, Volatile } from "../../motion/Volatile"
 import { SizeValueType } from "../../primitives/ValueTypes"
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
+import { useVolatileVector2Size } from "../../primitives/Normalizers"
 
 
 type ComponentIdType = ReturnType<typeof useId>
@@ -12,7 +13,7 @@ interface LayoutInterface {
   register (id: ComponentIdType): Volatile<Vector3>
   update (
     id: ComponentIdType,
-    size: PotentialVolatile<SizeValueType>,
+    size: Volatile<Vector2>,
     target: Volatile<Vector2>,
     snap: boolean
   ): void
@@ -43,8 +44,9 @@ export const usePosition = (
   const { register, unregister, update } = useContext(LayoutContext)
   const id = useId()
   const position = register(id)
+  const volatileSize = useVolatileVector2Size(size)
   useEffect(
-    () => void update(id, size, target, enabled),
+    () => void update(id, volatileSize, target, enabled),
     [update, size, target, enabled]
   )
   useEffect(() => () => unregister(id), [])

@@ -4,11 +4,11 @@ import { ThreeElements } from "@react-three/fiber"
 
 import { Line, LineStaticProps, ThreeLine } from "../base/Line"
 import { Mesh } from "../base/Mesh"
-import { PotentialVolatile, useDerivatedVolatile, useVolatile, Volatile }
+import { PotentialVolatile, useDerivatedVolatile, Volatile }
   from "../../motion/Volatile"
 import { Group } from "../base/Group"
 import { SizeValueType, Position3ValueType } from "../../primitives/ValueTypes"
-import { Vector2ConstructorExtended } from "../../primitives/Constructors"
+import { useVolatileVector2Size } from "../../primitives/Normalizers"
 
 
 const FrameMesh = (
@@ -43,11 +43,7 @@ export const Frame = (
     FrameProps
 ) => {
   const line = useRef<ThreeLine>(null)
-  const volatileSize = useDerivatedVolatile(
-    useVolatile(size),
-    (size: SizeValueType) => Vector2ConstructorExtended.create(size)
-  )
-
+  const volatileSize = useVolatileVector2Size(size)
   const computeBorderPoints = useCallback((size: Vector2) => {
     return [
       [-size.x / 2 + 1, -size.y / 2 + 1, z + 1],

@@ -117,9 +117,9 @@ export const MiniView = (
 ) => {
   const bounds = useLocalLayoutSettings()
 
-  const computedWidth = width ?? bounds.maxInnerWidth ?? Infinity
+  const computedWidth = width ?? bounds.maxOuterWidth ?? Infinity
   const computedHeight = height ??
-    computedWidth / renderer.size.width * renderer.size.height - 2
+    computedWidth / renderer.size.width * renderer.size.height
 
   if (!isFinite(computedWidth))
     throw new Error("Local layout doesn't specify a maxInnerWidth")

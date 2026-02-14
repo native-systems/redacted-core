@@ -5,7 +5,8 @@ import { Vector2ConstructorSingleParameterTypes,
 
 
 export type Position2ValueType = Vector2ConstructorSingleParameterTypes
-export type SizeValueType = [number, number]
+export type Scale2ValueType = Vector2ConstructorSingleParameterTypes
+export type SizeValueType = Vector2ConstructorSingleParameterTypes
 
 export type Position3ValueType = Vector3ConstructorSingleParameterTypes
 export interface Positionable { position: Vector3 }

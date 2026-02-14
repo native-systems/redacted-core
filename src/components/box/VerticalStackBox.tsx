@@ -1,16 +1,15 @@
-import React, { ComponentType, createContext, forwardRef, ReactNode, RefObject,
-  useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo,
-  useRef } from "react"
+import React, { ComponentType, createContext, ReactNode, RefObject,
+  useCallback, useContext, useEffect, useId, useRef } from "react"
 import { Box2, Object3D, Vector2, Vector3, Group as ThreeGroup } from "three"
 import { useFlexSize, useReflow } from "@react-three/flex"
 
-import { RootVolatile, useDelayedDerivatedVolatile, useDerivatedVolatile,
-  useVolatile, Volatile } from "../../motion/Volatile"
+import { RootVolatile, useDelayedDerivatedVolatile, useDerivatedVolatile, useVolatile, Volatile }
+  from "../../motion/Volatile"
 import { Group } from "../base/Group"
 import { UpperLayerTransport } from "../rendering/UpperLayerTransport"
 import { useBoundingBox } from "../../tracking/BoundingBox"
 import { usePosition } from "../layout/Layout"
-import { useAnimatedPosition } from "../../motion/Animation"
+import { useAnimatedPosition, useAnimatedSize } from "../../motion/Animation"
 import { useTheme } from "../../configuration/Theme"
 import { LocalLayout, LocalLayoutClientContainerProps }
   from "../layout/LocalLayout"
@@ -23,9 +22,9 @@ import { SizeValueType, Position3ValueType } from "../../primitives/ValueTypes"
 import { LayerIdentifierType } from "../rendering/LayerStack"
 import { warn } from "../../logging/Log"
 import { ShaderMaterialExtensionContext }
-  from "../../shading/ShaderMaterialExtensionContext"
+  from "../material/ExtendedShaderMaterial"
 import { clipRectangleExtension }
-  from "../../shading/extensions/ClipRectangleExtension"
+  from "../../material/extensions/ClipRectangleExtension"
 
 
 const StackPositionContext = createContext<Volatile<Position3ValueType>>(null!)
@@ -48,8 +47,8 @@ type CommonBoxProps = {
 }
 
 // Flexbox does not take marginBottom and marginRight into account
-const MarginCorrectedBox = forwardRef(
-  ({
+const MarginCorrectedBox = (
+  {
     height,
     width,
     marginTop = 0,
@@ -57,82 +56,78 @@ const MarginCorrectedBox = forwardRef(
     marginLeft = 0,
     marginRight = 0,
     children
-  }: LocalLayoutClientContainerProps, ref) => {
-    const reflow = useReflow()
-    const { transform: { toScaled } } = useLayer()
-    const size = useVolatile<SizeValueType>()
-    const boxRef = useRef<ThreeGroup>(null)
-    const stackPosition = useContext(StackPositionContext)
+  }: LocalLayoutClientContainerProps
+) => {
+  const reflow = useReflow()
+  const { transform: { toScaled } } = useLayer()
+  const size = useVolatile<Vector2>()
+  const boxRef = useRef<ThreeGroup>(null)
+  const stackPosition = useContext(StackPositionContext)
 
-    let position = new Vector3()
+  let position = new Vector3()
 
-    const computedBounds = useDelayedDerivatedVolatile(
-      [size, stackPosition],
-      ([width, height], _, set: (value: Box2) => void) => {
-        if (!boxRef.current)
-          return
-        boxRef.current.getWorldPosition(position)
-        set(
-          new Box2(
-            toScaled(new Vector2(
-              position.x - marginRight,
-              position.y - height + marginBottom
-            )),
-            toScaled(new Vector2(
-              position.x + width - marginRight,
-              position.y + marginBottom
-            ))
-          )
+  const computedBounds = useDelayedDerivatedVolatile(
+    [size, stackPosition],
+    ([width, height], _, set: (value: Box2) => void) => {
+      if (!boxRef.current)
+        return
+      boxRef.current.getWorldPosition(position)
+      set(
+        new Box2(
+          toScaled(new Vector2(
+            position.x - marginRight,
+            position.y - height + marginBottom
+          )),
+          toScaled(new Vector2(
+            position.x + width - marginRight,
+            position.y + marginBottom
+          ))
         )
-      }
-    )
+      )
+    }
+  )
 
-    const layoutClientInterface = useMemo(
-      () => ({ computedBounds }),
-      [computedBounds]
-    )
-
-    useImperativeHandle(
-      ref,
-      () => layoutClientInterface,
-      [layoutClientInterface]
-    )
-
-    return (
-      <LocalLayout notifySizeChanged={reflow} computedBounds={computedBounds}>
-        <Box
-          ref={boxRef}
-          marginTop={marginTop + marginBottom}
-          marginLeft={marginLeft + marginRight}
-          height={height}
-          width={width}
-          >
-          <SizeReporter volatileSize={size} />
-          <Group position={[-marginRight, marginBottom, 1]}>
-            <ShaderMaterialExtensionContext
-              extension={clipRectangleExtension}
-              bounds={computedBounds}
-              >
-              {children}
-            </ShaderMaterialExtensionContext>
-          </Group>
-        </Box>
-      </LocalLayout>
-    )
-  }
-)
+  return (
+    <LocalLayout notifySizeChanged={reflow} computedBounds={computedBounds}>
+      <Box
+        ref={boxRef}
+        marginTop={marginTop + marginBottom}
+        marginLeft={marginLeft + marginRight}
+        height={height}
+        width={width}
+        >
+        <SizeReporter volatileSize={size} />
+        <Group position={[-marginRight, marginBottom, 1]}>
+          {children}
+        </Group>
+      </Box>
+    </LocalLayout>
+  )
+}
 
 type VerticalStackBoxImplProps = {
   position: Volatile<Position3ValueType>
-  size: RootVolatile<SizeValueType>
+  size: RootVolatile<Vector2>
 } & CommonBoxProps
 
 const VerticalStackBoxImpl = (
   { position, size, children, FrameClass = Frame }: VerticalStackBoxImplProps
 ) => {
   const { invalidate } = useRenderer()
+  const { transform: { toScaled } } = useLayer()
   const theme = useTheme()
   const animatedPosition = useAnimatedPosition(position, 2000)
+
+  const computedBounds = useDerivatedVolatile(
+    [animatedPosition, size],
+    (position, [width, height]) => (
+      new Box2(
+        toScaled(new Vector2(position.x, position.y - height)),
+        toScaled(new Vector2(position.x + width, position.y))
+      )
+    )
+  )
+
   const framePosition = useDerivatedVolatile(
     size,
     ([width, height]) => [width / 2, -height / 2, 0]
@@ -140,7 +135,7 @@ const VerticalStackBoxImpl = (
 
   const onReflow = useCallback(
     (width: number, height: number) => {
-      size.set([width, height])
+      size.set(new Vector2(width, height))
       invalidate()
     },
     [size, invalidate]
@@ -151,8 +146,8 @@ const VerticalStackBoxImpl = (
     paddingTop: theme.box.horizontalBorder,
     paddingRight: theme.box.verticalBorder,
     paddingBottom: theme.box.horizontalBorder,
-    maxInnerWidth: theme.box.width - theme.box.verticalBorder * 2,
-    maxOuterWidth: theme.box.width - 2
+    maxInnerWidth: theme.box.width - 2 - theme.box.verticalBorder * 2,
+    maxOuterWidth: theme.box.width
   }
 
   return (
@@ -165,16 +160,22 @@ const VerticalStackBoxImpl = (
         borderColor={theme.box.borderColor}
         borderOpacity={theme.box.borderOpacity}
         />
-      <LocalLayout
-        clientWrapperClass={MarginCorrectedBox}
-        {...itemBounds}
+      <ShaderMaterialExtensionContext
+        extension={clipRectangleExtension}
+        bounds={computedBounds}
         >
-        <Flex onReflow={onReflow}>
-          <StackPositionContext.Provider value={animatedPosition}>
-            {children}
-          </StackPositionContext.Provider>
-        </Flex>
-      </LocalLayout>
+        <LocalLayout
+          clientWrapperClass={MarginCorrectedBox}
+          computedBounds={computedBounds}
+          {...itemBounds}
+          >
+          <Flex onReflow={onReflow}>
+            <StackPositionContext.Provider value={animatedPosition}>
+              {children}
+            </StackPositionContext.Provider>
+          </Flex>
+        </LocalLayout>
+      </ShaderMaterialExtensionContext>
     </Group>
   )
 }
@@ -189,20 +190,27 @@ const TargetPositionedVerticalStackBox = (
 ) => {
   const { transform: { fromNormalized } } = useLayer()
   const targetBoundingBox = useBoundingBox(target)
-  const size = useVolatile<SizeValueType>([0, 0])
+  const size = useVolatile(new Vector2())
+  const animatedSize = useAnimatedSize(size, 2000)
   const wants = useDerivatedVolatile(
     targetBoundingBox,
     box => fromNormalized(box.max),
     [fromNormalized]
   )
-  let position = usePosition(size, wants, snap)
+  let position = usePosition(animatedSize, wants, snap)
   __DEBUG_STATEMENT__: {
     position = useVolatileReadinessCheck(
       position,
       "TargetPositionedVerticalStackBox.position switched not ready"
     )
   }
-  return <VerticalStackBoxImpl position={position} size={size} {...props} />
+  return (
+    <VerticalStackBoxImpl
+      position={position}
+      size={size}
+      {...props}
+      />
+  )
 }
 
 type FixedPositionedVerticalStackBoxProps = {
@@ -213,7 +221,7 @@ const FixedPositionedVerticalStackBox = (
   { position, ...props }: FixedPositionedVerticalStackBoxProps
 ) => {
   const volatilePosition = useVolatile(position)
-  const size = useVolatile<SizeValueType>([0, 0])
+  const size = useVolatile(new Vector2())
   useEffect(() => volatilePosition.set(position), [position])
   return (
     <VerticalStackBoxImpl

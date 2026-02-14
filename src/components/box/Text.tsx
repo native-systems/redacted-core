@@ -1,6 +1,6 @@
 import React, { ReactNode, RefObject, useCallback, useRef, useImperativeHandle,
   useMemo } from "react"
-import { Box3, ColorRepresentation } from "three"
+import { Box3 } from "three"
 import { extend } from "@react-three/fiber"
 import { Text as TroikaText } from "troika-three-text"
 
@@ -14,9 +14,9 @@ import { useVolatile, Volatile }
   from "../../motion/Volatile"
 import { warn } from "../../logging/Log"
 import { inspectRoot } from "../../utils/Debug"
-import { BasicShaderMaterial } from "../../shading/BasicShaderMaterial"
+import { BasicShaderMaterial } from "../../material/BasicShaderMaterial"
 import { ExtendedShaderMaterial }
-  from "../../shading/ShaderMaterialExtensionContext"
+  from "../material/ExtendedShaderMaterial"
 
 
 extend({ TroikaText })

@@ -1,6 +1,6 @@
 import React, { JSX, useId } from "react"
 
-import { useDOMTunnelInput } from "./InputManager"
+import { useDOMTunnelInput } from "../../input/InputManager"
 
 
 /**

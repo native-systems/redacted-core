@@ -1,13 +1,13 @@
 import React, { createContext, ReactNode, useContext, useMemo } from "react"
 
-import { ExtensibleShaderMaterial } from "./ExtensibleShaderMaterial"
-import { Resolve } from "../motion/Component"
-import { Volatile } from "../motion/Volatile"
+import { ExtensibleShaderMaterial } from "../../material/ExtensibleShaderMaterial"
+import { Resolve } from "../../motion/Component"
+import { Volatile } from "../../motion/Volatile"
 
 
 class InjectedExtension {
   constructor (
-    public useUpdate: (
+    public useHook: (
       material: ExtensibleShaderMaterial,
       parameters: any
     ) => Volatile<void>,
@@ -60,7 +60,7 @@ const IntermediateShaderMaterialBinder = (
   { material, extension }:
     { material: ExtensibleShaderMaterial, extension: InjectedExtension }
 ) => {
-  const symbol = extension.useUpdate(material, extension.parameters)
+  const symbol = extension.useHook(material, extension.parameters)
   return <Resolve volatile={symbol} />
 }
 

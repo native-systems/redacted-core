@@ -6,7 +6,6 @@ import { useRenderer } from "../rendering/Renderer"
 import { get, RootVolatile, useDerivatedVolatile, Volatile }
   from "../../motion/Volatile"
 import { L2PAV } from "../../utils/L2PAV"
-import { SizeValueType } from "../../primitives/ValueTypes"
 
 
 type ComponentIdType = ReturnType<typeof useId>
@@ -14,7 +13,7 @@ type ComponentIdType = ReturnType<typeof useId>
 interface StackChild {
   id: ComponentIdType
   output: RootVolatile<Vector3>
-  size?: SizeValueType
+  size?: Volatile<Vector2>
   target?: Volatile<Vector2>
   snap?: boolean,
 }
@@ -73,19 +72,19 @@ export const FloatingVerticalStack = (
           .sort(compareChildrenTargets)
 
       const maxWidth = 
-        sortedManaged.reduce((max, { size }) => Math.max(get(size)![0], max), 0)
+        sortedManaged.reduce((max, { size }) => Math.max(get(size!).x, max), 0)
 
       const x = computeX(maxWidth)
       const positions = L2PAV(sortedManaged.map(({ target, size }) => {
         const y = get(target!).y
-        const [_, currentHeight] = get(size)!
+        const [_, currentHeight] = get(size!)
         return {
           position: y - currentHeight,
           size: currentHeight + spacing
         }
       }))
       sortedManaged.forEach(({ id, size }, i) => {
-        newPositions.set(id, [x, get(size)![1] + positions[i], i * -10])
+        newPositions.set(id, [x, get(size!).y + positions[i], i * -10])
       })
 
       for (const [id, position] of newPositions.entries())
@@ -108,7 +107,7 @@ export const FloatingVerticalStack = (
     },
     update (
       id: ComponentIdType,
-      size: SizeValueType,
+      size: Volatile<Vector2>,
       target: Volatile<Vector2>,
       snap: boolean
     ) {
