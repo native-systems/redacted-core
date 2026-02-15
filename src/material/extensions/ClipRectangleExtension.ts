@@ -1,8 +1,8 @@
 import { useMemo } from "react"
 import { Box2, Vector2 } from "three"
 
-import { physicalSubviewMatrix, useRenderer }
-  from "../../components/rendering/Renderer"
+import { useRenderer } from "../../components/rendering/Renderer"
+import { useCommonMaterialValues } from "../CommonMaterialValues"
 import { ExtensibleShaderMaterial, ShaderMaterialExtension }
   from "../ExtensibleShaderMaterial"
 import { PotentialVolatile, useDerivatedVolatile, useVolatile, Volatile }
@@ -36,12 +36,13 @@ export const clipRectangleExtension = (
   material: ExtensibleShaderMaterial,
   { bounds }: { bounds: PotentialVolatile<Box2> }
 ): Volatile<void> => {
+  const { getPixelRatio } = useRenderer()
+  const { physicalSubviewMatrix } = useCommonMaterialValues()
   const uniforms = useMemo(() => ({
     uRCSubviewMatrix: { value: physicalSubviewMatrix },
     uRCClipMin: { value: new Vector2(0, 0) },
     uRCClipMax: { value: new Vector2(0, 0) }
-  }), [])
-  const { getPixelRatio } = useRenderer()
+  }), [physicalSubviewMatrix])
   const extension = useMemo(() => new ShaderMaterialExtension(
     uniforms,
     undefined,

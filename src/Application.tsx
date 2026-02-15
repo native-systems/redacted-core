@@ -1,13 +1,14 @@
 import React, { ComponentType, ReactNode, RefObject, useEffect, useRef }
-  from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+  from "react"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { WebGLRenderer } from "three"
 
-import { AnimationHandler } from './motion/Animation'
-import { InputManager } from './input/InputManager'
-import { Renderer, RendererInterface } from './components/rendering/Renderer'
+import { AnimationHandler } from "./motion/Animation"
+import { InputManager } from "./input/InputManager"
+import { Renderer, RendererInterface } from "./components/rendering/Renderer"
 import { LayerStack, LayerConfigurationArray }
-  from './components/rendering/LayerStack'
+  from "./components/rendering/LayerStack"
+import { CommonMaterialValuesProvider } from "./material/CommonMaterialValues"
 
 
 const RenderScreen = (
@@ -80,16 +81,17 @@ export const Application = (
             canvas: domElement.canvas,
             antialias: true,
             powerPreference: "high-performance"
-
           })
         }}
         >
-        <MainScene
-          MainCameraClass={MainCameraClass}
-          LayerClasses={LayerClasses}
-          >
-          {children}
-        </MainScene>
+        <CommonMaterialValuesProvider>
+          <MainScene
+            MainCameraClass={MainCameraClass}
+            LayerClasses={LayerClasses}
+            >
+            {children}
+          </MainScene>
+        </CommonMaterialValuesProvider>
       </Canvas>
     </inputManager.CaptureArea>
   )

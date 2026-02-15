@@ -1,7 +1,8 @@
 import React, { createContext, forwardRef, ReactNode, RefObject, useCallback,
   useContext, useId, useImperativeHandle, useMemo, useRef } from "react"
 import { Size, useThree, Canvas } from "@react-three/fiber"
-import { Box2, Camera,  Scene, Vector2, Vector4, WebGLRenderer } from "three"
+import { Box2, Camera, Matrix3, Scene, Vector2, Vector4, WebGLRenderer }
+  from "three"
 
 import { RegisterLayer } from "./Layer"
 import { ComponentVolatileRegistry } from "../../motion/Component"
@@ -12,14 +13,8 @@ import { initializeRenderSteps, newRenderStepIdentifier,
 import { PartiallyOrderedSet } from "../../utils/PartiallyOrderedSet"
 import { error } from "../../logging/Log"
 import { inspectRoot } from "../../utils/Debug"
-import { Matrix3 } from "three"
+import { useCommonMaterialValues } from "../../material/CommonMaterialValues"
 
-
-/**
- * Used by shaders to compute physical (device pixel space) coordinates of
- * objects.
- */
-export const physicalSubviewMatrix = new Matrix3()
 
 const viewToSubviewMatrix = (view: Box2, subview: Box2) => {
   const sx = (subview.max.x - subview.min.x) / (view.max.x - view.min.x)
@@ -37,6 +32,7 @@ const viewToSubviewMatrix = (view: Box2, subview: Box2) => {
 // in a subrectangle of the output canvas. Can be called recursively.
 const executeInSubview = (
   gl: WebGLRenderer,
+  physicalSubviewMatrix: Matrix3,
   screenBounds: Box2,
   localSubview: Box2,
   callback: () => void
@@ -221,6 +217,7 @@ export const Renderer = forwardRef(
     // nestable one.
     const gl = useThree(state => state.gl)
     const size = useThree(state => state.size)
+    const { physicalSubviewMatrix } = useCommonMaterialValues()
     const bounds = useMemo(
       () => {
         const viewport = new Vector4()
@@ -315,7 +312,13 @@ export const Renderer = forwardRef(
         symbolResolutionInProgress.current = false
       },
       subview (viewBounds: Box2, callback: () => void) {
-        executeInSubview(gl, bounds.clone(), viewBounds.clone(), callback)
+        executeInSubview(
+          gl,
+          physicalSubviewMatrix,
+          bounds.clone(),
+          viewBounds.clone(),
+          callback
+        )
       },
       render (options = {}) {
         sortedRenderStepsRef.current.forEach((render) => render(options))
@@ -323,6 +326,7 @@ export const Renderer = forwardRef(
     }), [
       gl,
       size,
+      physicalSubviewMatrix,
       bounds,
       beforeRenderSignal,
       renderStepIdentifiers,
