@@ -35,14 +35,17 @@ interface LocalLayoutSettingsInterface {
 }
 
 interface LocalLayoutInterface {
-  clientWrapperClass?: ComponentType<LocalLayoutClientContainerProps>
+  clientWrapperClass: ComponentType<LocalLayoutClientContainerProps>
   settings: LocalLayoutSettingsInterface
   notifySizeChanged: () => void
   computedBounds?: PotentialVolatile<Box2>
 }
 
+const defaultClientWrapperClass =
+  ({ children }: { children?: ReactNode }) => <>{children}</>
+
 const defaultLocalLayout = {
-  clientWrapperClass: undefined,
+  clientWrapperClass: defaultClientWrapperClass,
   settings: {
     disabled: false,
     paddingLeft: 0,
@@ -91,9 +94,6 @@ export const useComputedBounds = (): PotentialVolatile<Box2> => {
   return computedBounds || bounds
 }
 
-const defaultClientWrapperClass =
-  ({ children }: { children?: ReactNode }) => <>{children}</>
-
 type LocalLayoutProps = {
   children: ReactNode
   clientWrapperClass?: ComponentType<LocalLayoutClientContainerProps>
@@ -119,7 +119,7 @@ export const LocalLayout = (props: LocalLayoutProps) => {
     clientWrapperClass = (
       inheritedClientWrapperClass || defaultClientWrapperClass
     ),
-    notifySizeChanged = () => undefined,
+    notifySizeChanged = useNotifySizeChanged(),
     computedBounds = useComputedBounds(),
     reset = false,
     children,
@@ -180,3 +180,43 @@ export const Optional = (
     {children}
   </LocalLayout>
 )
+
+type OverrideLocalLayoutClientProps = {
+  children: ReactNode
+  Class?: ComponentType<{ children: ReactNode }>
+} & Partial<LocalLayoutClientContainerProps>
+
+/**
+ * Overrides local layout clients. Children of this component which declare a
+ * {@link LocalLayoutClient} will instead instantiate a client with the
+ * additional specified properties, if any. If specified, children of those
+ * clients will be wrapped in a component of type `Class`. This utility is
+ * useful to inject external components and access context that is only
+ * available within the local layout client.
+ * @param Class an optional component class
+ * @param props {@link LocalLayoutClient} properties
+ */
+export const OverrideLocalLayoutClient = (
+  {
+    children,
+    Class = defaultClientWrapperClass,
+    ...overrideProps
+  }: OverrideLocalLayoutClientProps
+) => {
+  const ClientWrapperClass = useContext(LocalLayoutContext).clientWrapperClass
+  const OverrideClientWrapperClass = useMemo(
+    () => ({ children, ...props }: LocalLayoutClientContainerProps) => (
+      <ClientWrapperClass {...props} {...overrideProps}>
+        <Class>
+          {children}
+        </Class>
+      </ClientWrapperClass>
+    ),
+    [ClientWrapperClass]
+  )
+  return (
+    <LocalLayout clientWrapperClass={OverrideClientWrapperClass}>
+      {children}
+    </LocalLayout>
+  )
+}

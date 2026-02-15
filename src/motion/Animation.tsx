@@ -6,7 +6,7 @@ import { useRenderer } from "../components/rendering"
 import { Vector2ConstructorExtended, Vector3ConstructorExtended,
   Vector3ConstructorSingleParameterTypes } from "../primitives/Constructors"
 import { SizeValueType } from "../primitives/ValueTypes"
-import { use3DScale } from "../utils/Transform"
+import { use3DScaleFromSize } from "../utils/Transform"
 import { useTheme } from "../configuration/Theme"
 
 
@@ -96,7 +96,10 @@ export const useAnimatedSize = (
   size: Volatile<SizeValueType>
 ): Volatile<Vector2> => (
   useDerivatedVolatile(
-    useAnimatedLinearVector3(use3DScale(size), useTheme().animation.speed),
+    useAnimatedLinearVector3(
+      use3DScaleFromSize(size),
+      useTheme().animation.speed
+    ),
     ([width, height, _]) => new Vector2ConstructorExtended(width, height)
   )
 )

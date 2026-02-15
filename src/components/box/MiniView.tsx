@@ -8,6 +8,7 @@ import { Resolve } from "../../motion/Component"
 import { get, useDerivatedVolatile, useVolatile, Volatile }
   from "../../motion/Volatile"
 import { newRenderStepIdentifier, SubviewStage } from "../rendering/Stages"
+import { useLayer } from "../rendering/Layer"
 
 
 const MAX_RENDERS_PER_COMPONENT = 3
@@ -20,6 +21,7 @@ type MiniViewImplProps = {
 
 const MiniViewImpl = ({ renderer, width, height }: MiniViewImplProps) => {
   const { invalidate, registerRenderer, beforeRenderSignal } = useRenderer()
+  const { transform: { toScaled } } = useLayer()
   const bounds = useLocalLayoutSettings()
   const computedBounds = useComputedBounds()
   const id = useId()
@@ -29,8 +31,8 @@ const MiniViewImpl = ({ renderer, width, height }: MiniViewImplProps) => {
   const innerBounds: Volatile<Box2> = useDerivatedVolatile(
     useVolatile(computedBounds), 
     ({ min, max }) => new Box2(
-      new Vector2(min.x + 1, min.y + 1),
-      new Vector2(max.x - 1, max.y - 1)
+      toScaled(new Vector2(min.x + 1, min.y + 1)),
+      toScaled(new Vector2(max.x - 1, max.y - 1))
     )
   )
 

@@ -5,7 +5,7 @@ import { ThreeElements } from "@react-three/fiber"
 import { ExtractedProps, extractProperties } from "../../utils/Properties"
 import { VolatileAttributeComponent, Require } from "../../motion/Component"
 import { Mesh } from "../base/Mesh"
-import { use3DScale } from "../../utils/Transform"
+import { use3DScaleFromSize } from "../../utils/Transform"
 import { ResourceHandle, Volatile } from "../../motion/Volatile"
 
 
@@ -31,7 +31,7 @@ type ImageProps = {
 export const Image = extractProperties(
   ({ _extracted: { size }, texture, ...props }: ImageProps) => (
     <Require volatile={texture}>
-      <Mesh scale={use3DScale(size)}>
+      <Mesh scale={use3DScaleFromSize(size)}>
         <planeGeometry />
         <VolatileAttributeComponent Class={PrimitiveMeshBasicMaterial}
           volatile={texture}

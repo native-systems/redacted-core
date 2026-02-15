@@ -1,7 +1,8 @@
 import { Vector3 } from "three"
 
 import { SizeValueType } from "../primitives/ValueTypes"
-import { useDerivatedVolatile, Volatile } from "../motion/Volatile"
+import { useDerivatedVolatile, PotentialVolatile, Volatile }
+  from "../motion/Volatile"
 import { useVolatileVector2Size } from "../primitives/Normalizers"
 
 
@@ -10,8 +11,8 @@ import { useVolatileVector2Size } from "../primitives/Normalizers"
  * @param size a volatile {@link SizeValueType}
  * @returns a volatile `[width, height, 1]`
  */
-export const use3DScale = 
-  (size: Volatile<SizeValueType>): Volatile<Vector3> =>
+export const use3DScaleFromSize = 
+  (size: PotentialVolatile<SizeValueType>): Volatile<Vector3> =>
     useDerivatedVolatile(
       useVolatileVector2Size(size),
       (value) => new Vector3(value.x, value.y, 1),

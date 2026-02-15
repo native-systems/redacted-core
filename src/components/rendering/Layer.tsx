@@ -1,11 +1,12 @@
-import React, { createContext, ReactNode, useContext, useEffect, useMemo }
-  from "react"
+import React, { ComponentType, createContext, ReactElement, ReactNode,
+  useContext, useEffect, useMemo } from "react"
 import { createPortal, useThree } from "@react-three/fiber"
 import { Scene, Vector2 } from "three"
 
 import { useRenderer } from "./Renderer"
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
 import { RenderStepIdentifierType } from "./Stages"
+import { createTunnel } from "../../utils/Tunnel"
 
 
 interface LayerTransformInterface {
@@ -32,7 +33,14 @@ interface LayerTransformInterface {
 }
 
 interface LayerInterface {
+  /**
+   * Function set to switch from normalized to layer-specific coordinates.
+   */
   transform: LayerTransformInterface
+  /**
+   * Component class that can be used to insert objects at the origin.
+   */
+  RootTunnel: ComponentType<{ children: ReactElement }>
 }
 
 const LayerContext = createContext<LayerInterface>(
@@ -111,11 +119,21 @@ export const Layer = (
   { renderingSettings, transform, children }: LayerProps
 ) => {
   const scene = useMemo(() => new Scene(), [])
+  const rootTunnel = createTunnel()
   const { identifier, after, before } = renderingSettings
 
+  const layerInterface = useMemo(
+    () => ({
+      transform,
+      RootTunnel: rootTunnel.In
+    }),
+    [transform, rootTunnel.In]
+  )
+
   return createPortal(
-    <LayerContext.Provider value={{transform}}>
+    <LayerContext.Provider value={layerInterface}>
       {children}
+      <rootTunnel.Out />
       <RegisterLayer identifier={identifier} after={after} before={before} />
     </LayerContext.Provider>,
     scene

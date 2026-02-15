@@ -109,7 +109,7 @@ const VolatileText = (
 }
 
 const StaticText = (
-  { children, ...props }: CommonTextProps & { children: ReactNode }
+  { children, ...props }: CommonTextProps & { children?: ReactNode }
 ) => {
   __DEBUG_STATEMENT__: {
     if (typeof children !== "string" && typeof children !== "number") {
@@ -122,7 +122,7 @@ const StaticText = (
 }
 
 export type TextProps = {
-  children: ReactNode
+  children?: ReactNode
   text?: Volatile<string>
   height?: number
 } & CommonTextProps
