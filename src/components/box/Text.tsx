@@ -1,5 +1,5 @@
-import React, { ReactNode, RefObject, useCallback, useRef, useImperativeHandle,
-  useMemo } from "react"
+import React, { ReactNode, RefObject, useCallback, useRef, useMemo, Ref }
+  from "react"
 import { Box3 } from "three"
 import { extend } from "@react-three/fiber"
 import { Text as TroikaText } from "troika-three-text"
@@ -22,7 +22,7 @@ import { ExtendedShaderMaterial }
 extend({ TroikaText })
 
 type CommonTextProps = {
-  ref?: RefObject<TroikaText | null>
+  ref?: Ref<TroikaText | null>
   type?: FontProfiles
   onResize?: (size: Box3) => void
 }
@@ -53,17 +53,22 @@ const TextBase = (
 
   const bindRef = useCallback((textObject: TroikaText) => {
     if (textObject) {
+      if (typeof ref === "function")
+        ref(textObject)
+      else if (ref)
+        ref.current = textObject
       childRef.current = textObject
       textObject.addEventListener("synccomplete", onSyncComplete)
     }
     else {
       childRef.current?.removeEventListener("synccomplete", onSyncComplete)
       childRef.current = null
+      if (typeof ref === "function")
+        ref(textObject)
+      else if (ref)
+        ref.current = textObject
     }
-  }, [])
-
-  // TODO: review this
-  useImperativeHandle(ref, () => childRef.current!)
+  }, [ref])
 
   return (
     <troikaText

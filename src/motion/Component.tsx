@@ -1,13 +1,13 @@
-import React, { createContext, forwardRef, useContext, useEffect,
-  useImperativeHandle, useMemo, useRef, ReactNode, RefAttributes, ReactElement,
-  ComponentType, ComponentProps as ReactComponentProps, ComponentPropsWithRef,
-  RefObject } from "react"
+import React, { createContext, forwardRef, useContext, useEffect, useMemo,
+  ReactNode, RefAttributes, ReactElement, ComponentType, RefObject,
+  ComponentProps as ReactComponentProps, ComponentPropsWithRef } from "react"
 
 import { isVolatile, PotentialVolatile, useDerivatedVolatile, useVolatileReady,
   Volatile } from "./Volatile"
 import { Position3ValueType, Positionable, Scale3ValueType, Scalable }
   from "../primitives/ValueTypes"
 import { Vector3ConstructorExtended } from "../primitives/Constructors"
+import { useForwardableRef } from "../utils/ForwardableRef"
 
 
 type RegisterCallback = (volatile: Volatile<any>) => () => void
@@ -113,14 +113,14 @@ const ReadyVolatileAttributeComponent =
       props: VolatileAttributeComponentProps<S, C, R>,
       ref: ComponentPropsWithRef<C>["ref"]
     ) => {
+      type RefValueType = ExtractRefValueType<ComponentPropsWithRef<C>["ref"]>
       const { Class, volatile, computeVolatile, ...otherProps } = props
-      const childRef = useRef(null)
+      const [childRef, assignRef] = useForwardableRef<RefValueType>(ref)
       const initialValues = useMemo(
         () => computeVolatile(volatile.current() as S),
         // ^ This component is never mounted before the volatile is ready
         [volatile]
       )
-      useImperativeHandle(ref, () => childRef.current)
       const symbol = useDerivatedVolatile(volatile, (value) => {
         if (!childRef.current || !volatile.ready())
           return
@@ -129,7 +129,7 @@ const ReadyVolatileAttributeComponent =
           Object.assign(childRef.current, computedValues)
       }, [volatile, computeVolatile])
       const childProps = {
-        ref: childRef,
+        ref: assignRef,
         ...initialValues,
         ...otherProps
       } as ComponentPropsWithRef<C>
