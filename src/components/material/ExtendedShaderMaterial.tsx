@@ -1,6 +1,7 @@
 import React, { createContext, ReactNode, useContext, useMemo } from "react"
 
-import { ExtensibleShaderMaterial } from "../../material/ExtensibleShaderMaterial"
+import { ExtensibleShaderMaterial }
+  from "../../material/ExtensibleShaderMaterial"
 import { Resolve } from "../../motion/Component"
 import { Volatile } from "../../motion/Volatile"
 
@@ -42,7 +43,7 @@ export const ShaderMaterialExtensionContext = <P,> (
       ...inheritedExtensions,
       new InjectedExtension(extension, parameters as P)
     ], 
-    [inheritedExtensions, extension]
+    [inheritedExtensions, extension, parameters]
   )
   return (
     <ExtensionSetContext.Provider value={allExtensions}>

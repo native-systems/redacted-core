@@ -1,7 +1,6 @@
 import React, { ComponentType, ReactNode, RefObject, useCallback, useEffect,
   useId, useRef } from "react"
 import { Box2, Object3D, Vector2, Vector3, Group as ThreeGroup } from "three"
-import { useFlexSize, useReflow } from "@react-three/flex"
 
 import { RootVolatile, useDelayedDerivatedVolatile, useDerivatedVolatile,
   useVolatile, Volatile } from "../../motion/Volatile"
@@ -17,8 +16,8 @@ import { Frame, FrameProps } from "./Frame"
 import { useLayer } from "../rendering/Layer"
 import { useRenderer } from "../rendering/Renderer"
 import { useVolatileReadinessCheck } from "../../utils/Debug"
-import { Flex, Box } from "../layout/Flex"
-import { SizeValueType, Position3ValueType } from "../../primitives/ValueTypes"
+import { Flex, Box, useReflow } from "../layout/NonReactiveFlex"
+import { Position3ValueType } from "../../primitives/ValueTypes"
 import { LayerIdentifierType } from "../rendering/LayerStack"
 import { warn } from "../../logging/Log"
 import { ShaderMaterialExtensionContext }
@@ -26,17 +25,23 @@ import { ShaderMaterialExtensionContext }
 import { clipRectangleExtension }
   from "../../material/extensions/ClipRectangleExtension"
 
+import { Resolve } from "../../motion/Component"
 
-const SizeReporter = (
-  { volatileSize }: { volatileSize: RootVolatile<SizeValueType> }
-) => {
+const ForwardReflow = ({ children }: { children: ReactNode }) => {
   const { invalidate } = useRenderer()
-  const [width, height] = useFlexSize()
-  useEffect(() => {
-    volatileSize.set([width, height])
-    invalidate()
-  }, [invalidate, width, height])
-  return <></>
+  const reflow = useReflow()
+  const notifySizeChanged = useCallback(
+    () => {
+      reflow()
+      invalidate()
+    },
+    [invalidate, reflow]
+  )
+  return (
+    <LocalLayout notifySizeChanged={notifySizeChanged}>
+      {children}
+    </LocalLayout>
+  )
 }
 
 type CommonBoxProps = {
@@ -55,55 +60,63 @@ const MarginCorrectedBox = (
     children
   }: LocalLayoutClientContainerProps
 ) => {
-  const reflow = useReflow()
-  const size = useVolatile<Vector2>()
-  const boxRef = useRef<ThreeGroup>(null)
+  const { transform: { toScaled } } = useLayer()
   const stackComputedBounds = useComputedBounds()
-
-  // TODO: replace react-three-flex entirely and implement a non-reactive
-  // object positioning component set that allows smooth animations at the
-  // client level
+  const size = useVolatile<Vector2>(new Vector2(0, 0))
+  const animatedSize = useAnimatedSize(size)
+  const boxRef = useRef<ThreeGroup>(null)
 
   let position = new Vector3()
 
   const computedBounds = useDelayedDerivatedVolatile(
-    [size, useVolatile(stackComputedBounds)],
+    [animatedSize, useVolatile(stackComputedBounds)],
     ([_width, height], stackBounds, set: (value: Box2) => void) => {
       if (!boxRef.current)
         return
       boxRef.current.getWorldPosition(position)
-      set(
-        new Box2(
-          new Vector2(
-            position.x - marginLeft - marginRight,
-            position.y - height
-          ),
-          new Vector2(
-            // Always span the entire width of the container
-            position.x
-              + stackBounds.max.x - stackBounds.min.x
-              - marginLeft - marginRight,
-            position.y + marginTop + marginBottom
-          )
-        ).intersect(stackBounds)
-      )
-    }
+      set(new Box2(
+        new Vector2(
+          position.x - marginLeft,
+          position.y - height - marginBottom
+        ),
+        new Vector2(
+          // Always span the entire width of the container
+          position.x + stackBounds.max.x - stackBounds.min.x,
+          position.y + marginTop
+        )
+      ).intersect(stackBounds))
+    },
+    [marginTop, marginBottom, marginLeft, marginRight]
+  )
+
+  const scaledComputedBounds = useDerivatedVolatile(
+    computedBounds,
+    ({ min, max }) => new Box2(toScaled(min), toScaled(max)),
+    [toScaled]
   )
 
   return (
-    <LocalLayout notifySizeChanged={reflow} computedBounds={computedBounds}>
+    <LocalLayout computedBounds={computedBounds}>
       <Box
+        sizeReceiver={size}
+        size={animatedSize}
         ref={boxRef}
-        marginTop={marginTop + marginBottom}
-        marginLeft={marginLeft + marginRight}
+        marginTop={marginTop}
+        marginBottom={marginBottom}
+        marginLeft={marginLeft}
+        marginRight={marginRight}
         height={height}
         width={width}
         >
-        <SizeReporter volatileSize={size} />
-        {/* Flexbox does not take marginBottom and marginRight into account */}
-        <Group position={[-marginRight, marginBottom, 1]}>
-          {children}
-        </Group>
+        <Resolve volatile={computedBounds} />
+        <ShaderMaterialExtensionContext
+          extension={clipRectangleExtension}
+          bounds={scaledComputedBounds}
+          >
+          <ForwardReflow>
+            {children}
+          </ForwardReflow>
+        </ShaderMaterialExtensionContext>
       </Box>
     </LocalLayout>
   )
@@ -125,7 +138,6 @@ const VerticalStackBoxImpl = (
   }: VerticalStackBoxImplProps
 ) => {
   const { invalidate } = useRenderer()
-  const { transform: { toScaled } } = useLayer()
   const theme = useTheme()
   const animatedPosition = useAnimatedPosition(position)
 
@@ -146,11 +158,6 @@ const VerticalStackBoxImpl = (
         new Vector2(position.x + width, position.y)
       )
     )
-  )
-
-  const scaledComputedBounds = useDerivatedVolatile(
-    computedBounds,
-    ({ min, max }) => new Box2(toScaled(min), toScaled(max))
   )
 
   const framePosition = useDerivatedVolatile(
@@ -176,10 +183,6 @@ const VerticalStackBoxImpl = (
         borderColor={theme.box.borderColor}
         borderOpacity={theme.box.borderOpacity}
         />
-      <ShaderMaterialExtensionContext
-        extension={clipRectangleExtension}
-        bounds={scaledComputedBounds}
-        >
         <LocalLayout
           clientWrapperClass={MarginCorrectedBox}
           computedBounds={computedBounds}
@@ -189,7 +192,6 @@ const VerticalStackBoxImpl = (
             {children}
           </Flex>
         </LocalLayout>
-      </ShaderMaterialExtensionContext>
     </Group>
   )
 }

@@ -195,11 +195,11 @@ export class RootVolatile<T> extends Volatile<T> {
   /**
    * Used for internal purposes.
    */
-  setAuxiliary (auxiliary: Volatile<void>) {
+  public setAuxiliary (auxiliary: Volatile<void>) {
     this.auxiliary = auxiliary
   }
 
-  getAuxiliaries () {
+  public getAuxiliaries () {
     return new Set(this.auxiliary? [this.auxiliary]: [])
   }
 }
@@ -211,7 +211,7 @@ extends Volatile<T> {
   protected readonly sources: SourceArray<S>
   protected initialized: boolean
   protected readySet: boolean
-  protected readyStateUnsubscribe?: Array<UnsubscribeCallback>
+  protected unsubscribeReadyStateChanges?: Array<UnsubscribeCallback>
   protected invalidated: boolean
   protected unsubscribeInvalidations?: Array<UnsubscribeCallback>
 
@@ -220,7 +220,7 @@ extends Volatile<T> {
     this.sources = sources
     this.initialized = false
     this.readySet = false
-    this.readyStateUnsubscribe = undefined
+    this.unsubscribeReadyStateChanges = undefined
     this.invalidated = false
   }
 
@@ -234,7 +234,7 @@ extends Volatile<T> {
       () => !!(sources.length)
         && sources.find((source) => !source.ready()) === undefined
     this.readySet = computeReadyFromSources()
-    this.readyStateUnsubscribe = sources.map(
+    this.unsubscribeReadyStateChanges = sources.map(
       (source) => source.subscribeReadyStateChange(({ ready }) => {
         if (this.readySet && !ready) {
           // If the node was previously ready and is not ready anymore,
@@ -272,7 +272,7 @@ extends Volatile<T> {
 
   public dispose () {
     this.unsubscribeInvalidations?.forEach((unsubscribe) => unsubscribe())
-    this.readyStateUnsubscribe?.forEach((unsubscribe) => unsubscribe())
+    this.unsubscribeReadyStateChanges?.forEach((unsubscribe) => unsubscribe())
     this.initialized = false
   }
 
@@ -371,51 +371,51 @@ export const isVolatile = (object: any): boolean =>
 /**
  * Returns the resource held by a handle in a volatile.
  * @param value the volatile to retrieve the value from
- * @param _default an optional default value
+ * @param defaultValue an optional value to return if the volatile is not ready
  */
 export function get <T, D = never> (
   value: Volatile<ResourceHandle<T>>,
-  _default?: D
+  defaultValue?: D
 ): T | D
 
 /**
  * Returns a volatile value.
  * @param value the volatile to retrieve the value from
- * @param _default an optional default value
+ * @param defaultValue an optional value to return if the volatile is not ready
  */
-export function get <T, D = never> (value: Volatile<T>, _default?: D): T | D
+export function get <T, D = never> (value: Volatile<T>, defaultValue?: D): T | D
 
 /**
  * Returns a static or volatile value.
  * @param value the static or volatile to retrieve the value from
- * @param _default an optional default value
+ * @param defaultValue an optional value to return if the volatile is not ready
  */
 export function get <T, D = never> (
   value: PotentialVolatile<T>,
-  _default?: D
+  defaultValue?: D
 ): T | D
 
 /**
  * Returns a value.
  * @param value the value to return
- * @param _default this parameter will be ignored
+ * @param defaultValue this parameter will be ignored
  */
-export function get <T, D = never> (value: T, _default?: D): T | D
+export function get <T, D = never> (value: T, defaultValue?: D): T | D
 
 /**
  * Helper function to retrieve the actual value from a potential volatile, or
  * the resource if it is a resource handle wrapped in a volatile. If not ready
  * and no default value is supplied, throws an error.
  * @param object the object to retrieve the value from
- * @param _default a default value to return if the volatile is not ready
+ * @param defaultValue an optional value to return if the volatile is not ready
  * @returns the volatile or resource handle value or the object itself
  */
-export function get (object: any, _default: any = UNDEFINED_VALUE) {
+export function get (object: any, defaultValue: any = UNDEFINED_VALUE) {
   if (!isVolatile(object))
     return object
   if (!object.ready()) {
-    if (_default !== UNDEFINED_VALUE)
-      return _default
+    if (defaultValue !== UNDEFINED_VALUE)
+      return defaultValue
     throw new Error("Attempted to access a non-ready volatile")
   }
   return isResourceHandle(object.current())
@@ -588,10 +588,23 @@ export function useDelayedDerivatedVolatile<T> (
   compute: (...a: any[]) => void,
   deps: any[] = []
 ): Volatile<T> {
-  const volatile = useVolatile<T>()
+  const computeDeps = useMemo(
+    () =>
+      Array.isArray(volatileOrArray)
+        ? volatileOrArray
+        : [volatileOrArray],
+    Array.isArray(volatileOrArray)
+      ? volatileOrArray
+      : [volatileOrArray]
+  )
+  const volatile = useMemo(
+    () => new RootVolatile<T>(),
+    [...computeDeps, ...deps]
+  )
   const auxiliary = useDerivatedVolatile(volatileOrArray, (...a: any[]) => {
     compute.apply(null, [...a, (value: any) => volatile.set(value)])
   }, deps)
   volatile.setAuxiliary(auxiliary)
+  useEffect(() => () => volatile.unset(), [volatile])
   return volatile
 }

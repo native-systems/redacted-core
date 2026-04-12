@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { Box2, Vector2 } from "three"
 
 import { useRenderer } from "../../components/rendering/Renderer"
@@ -9,7 +9,7 @@ import { PotentialVolatile, useDerivatedVolatile, useVolatile, Volatile }
   from "../../motion/Volatile"
 
 
-const clipRectangleShaderChunk = /* glsl */`
+const clipRectangleShaderChunk = /* glsl */ `
   #define RC_CLIP_RECTANGLE_EXTENSION 1
 
   uniform mat3 uRCSubviewMatrix;
@@ -47,8 +47,11 @@ export const clipRectangleExtension = (
     uniforms,
     undefined,
     clipRectangleShaderChunk
-  ), [])
-  material.extend(extension)
+  ), [uniforms, clipRectangleShaderChunk])
+  useEffect(() => {
+    const remove = material.extend(extension)
+    return () => void remove()
+  }, [extension])
   return useDerivatedVolatile(
     useVolatile(bounds),
     ({ min, max }: Box2) => {

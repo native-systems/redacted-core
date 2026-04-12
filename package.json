@@ -16,14 +16,12 @@
   },
   "peerDependencies": {
     "@react-three/fiber": "^9.4.0",
-    "@react-three/flex": "^1.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "troika-three-text": "^0.52.3"
   },
   "devDependencies": {
     "@react-three/fiber": "^9.4.0",
-    "@react-three/flex": "^1.0.1",
     "@rollup/plugin-strip": "^3.0.4",
     "@types/lodash": "^4.17.20",
     "@types/node": "^24.10.0",

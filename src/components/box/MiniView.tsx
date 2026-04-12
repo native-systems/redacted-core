@@ -11,7 +11,7 @@ import { newRenderStepIdentifier, SubviewStage } from "../rendering/Stages"
 import { useLayer } from "../rendering/Layer"
 
 
-const MAX_RENDERS_PER_COMPONENT = 3
+const MAX_RENDERS_PER_COMPONENT = 1
 
 type MiniViewImplProps = {
   renderer: RendererInterface
@@ -87,8 +87,8 @@ const MiniViewImpl = ({ renderer, width, height }: MiniViewImplProps) => {
       <Resolve volatile={resolver} />
       <Resolve volatile={innerBounds} />
       <mesh onBeforeRender={() => rendered.current = true}
-        position={[1, 1, 0]}
-        scale={[width, height, 1]}
+        position={useMemo(() => [1, 1, 0], [])}
+        scale={useMemo(() => [width, height, 1], [width, height])}
         visible={true}
         >
         <planeGeometry />

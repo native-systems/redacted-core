@@ -27,6 +27,7 @@ export class ExtensibleShaderMaterial extends ShaderMaterial {
 
   public extend (extension: ShaderMaterialExtension) {
     this.shaderExtensions.add(extension)
+    return () => void this.shaderExtensions.delete(extension)
   }
 
   public onBeforeCompile(

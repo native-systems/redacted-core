@@ -15,7 +15,7 @@ interface LayerStackInterface {
   getTunnelAt (
     layerIdentifier: LayerIdentifierType,
     callback: GetTunnelAtCallbackType
-  ): void,
+  ): void
   getMainCamera (): Camera | null
 }
 

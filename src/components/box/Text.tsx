@@ -9,7 +9,6 @@ import { DefaultFontProfile, FontProfiles, useTheme }
 import { LocalLayoutClient, useLocalLayoutSettings, useNotifySizeChanged }
   from "../layout/LocalLayout"
 import { VolatileAttributeComponent } from "../../motion/Component"
-import { useRenderer } from "../rendering/Renderer"
 import { useVolatile, Volatile }
   from "../../motion/Volatile"
 import { warn } from "../../logging/Log"
@@ -35,7 +34,6 @@ const TextBase = (
   const theme = useTheme()
   const bounds = useLocalLayoutSettings()
   const notifySizeChanged = useNotifySizeChanged()
-  const { invalidate } = useRenderer()
 
   const material = useMemo(
     () => new BasicShaderMaterial({ color: theme.fonts[type].color }),
@@ -48,8 +46,7 @@ const TextBase = (
     if (onResize && childRef.current.geometry.boundingBox)
       onResize(childRef.current.geometry.boundingBox)
     notifySizeChanged()
-    invalidate()
-  }, [invalidate, notifySizeChanged])
+  }, [notifySizeChanged])
 
   const bindRef = useCallback((textObject: TroikaText) => {
     if (textObject) {
