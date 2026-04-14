@@ -2,6 +2,7 @@ import React, { createContext, ReactNode, useContext, useMemo } from "react"
 import _ from "lodash"
 
 import { NotImplementedProxy } from "../utils/NotImplementedProxy"
+import { ColorRepresentation } from "three"
 
 
 interface AnimationConfiguration {
@@ -26,6 +27,10 @@ interface FontConfiguration {
   color?: string
   wordBreak?: string
   transform?: (text: string) => string
+  paddingLeft?: number
+  paddingTop?: number
+  paddingRight?: number
+  paddingBottom?: number
 }
 
 export type ColorProfiles = "primary"
@@ -36,10 +41,11 @@ export type FontProfiles =
   typeof DefaultFontProfile | "italic" | "sectionHeader"
 
 export interface ThemeConfiguration {
+  backgroundColor: ColorRepresentation
   scale: number
   animation: AnimationConfiguration
   box: BoxConfiguration
-  colors: { [ K in ColorProfiles]: string}
+  colors: { [ K in ColorProfiles]: ColorRepresentation }
   fonts: { [K in FontProfiles]: FontConfiguration }
 }
 

@@ -141,6 +141,14 @@ export const Text = (
   { type = DefaultFontProfile, text, height, ...props }: TextProps
 ) => {
   const bounds = useLocalLayoutSettings()
+  const {
+    paddingLeft = bounds.paddingLeft,
+    paddingTop = bounds.paddingTop,
+    paddingRight = bounds.paddingRight,
+    paddingBottom = bounds.paddingBottom
+  } = useTheme().fonts[type]
+
+  console.log(type, useTheme().fonts[type])
 
   const textComponent = text
     ? <VolatileText type={type} text={text} {...props} />
@@ -148,10 +156,10 @@ export const Text = (
 
   return (
     <LocalLayoutClient
-      marginLeft={bounds.paddingLeft}
-      marginRight={bounds.paddingRight}
-      marginTop={bounds.paddingTop}
-      marginBottom={bounds.paddingBottom}
+      marginLeft={paddingLeft}
+      marginRight={paddingRight}
+      marginTop={paddingTop}
+      marginBottom={paddingBottom}
       height={height}
       >
       {textComponent}

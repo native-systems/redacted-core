@@ -1,8 +1,8 @@
 import React, { createContext, forwardRef, ReactNode, RefObject, useCallback,
   useContext, useId, useImperativeHandle, useMemo, useRef } from "react"
 import { Size, useThree, Canvas } from "@react-three/fiber"
-import { Box2, Camera, Matrix3, Scene, Vector2, Vector4, WebGLRenderer }
-  from "three"
+import { Box2, Camera, ColorRepresentation, Matrix3, Scene, Vector2, Vector4,
+  WebGLRenderer } from "three"
 
 import { RegisterLayer } from "./Layer"
 import { ComponentVolatileRegistry } from "../../motion/Component"
@@ -14,6 +14,7 @@ import { PartiallyOrderedSet } from "../../utils/PartiallyOrderedSet"
 import { error } from "../../logging/Log"
 import { inspectRoot } from "../../utils/Debug"
 import { useCommonMaterialValues } from "../../material/CommonMaterialValues"
+import { useTheme } from "../../configuration/Theme"
 
 
 const viewToSubviewMatrix = (view: Box2, subview: Box2) => {
@@ -66,6 +67,7 @@ const executeInSubview = (
 type ComponentIdType = ReturnType<typeof useId>
 
 type RenderOptions = {
+  clearColor?: ColorRepresentation
   disableClear?: boolean
   renderedComponents?: { [id: ComponentIdType]: number }
 }
@@ -77,7 +79,9 @@ const renderLayer = (
   gl: WebGLRenderer,
   options: RenderOptions = {}
 ) => {
-  const { disableClear } = options
+  const { clearColor, disableClear } = options
+  if (clearColor)
+    gl.setClearColor(clearColor)
   gl.autoClear = clear && !disableClear
   gl.clearDepth()
   gl.render(scene, camera)
@@ -217,6 +221,7 @@ export const Renderer = forwardRef(
     // nestable one.
     const gl = useThree(state => state.gl)
     const size = useThree(state => state.size)
+    const { backgroundColor } = useTheme()
     const { physicalSubviewMatrix } = useCommonMaterialValues()
     const bounds = useMemo(
       () => {
@@ -286,7 +291,13 @@ export const Renderer = forwardRef(
           identifier,
           after,
           before,
-          options => renderLayer(clear, scene, camera, gl, options)
+          options => renderLayer(
+            clear,
+            scene,
+            camera,
+            gl,
+            { clearColor: backgroundColor, ...options }
+          )
         ),
       registerRenderer: (identifier, after, before, renderer) =>
         registerRenderStep(
