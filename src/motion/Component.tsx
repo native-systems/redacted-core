@@ -1,6 +1,7 @@
 import React, { createContext, forwardRef, useContext, useEffect, useMemo,
   ReactNode, RefAttributes, ReactElement, ComponentType, RefObject,
-  ComponentProps as ReactComponentProps, ComponentPropsWithRef } from "react"
+  ComponentProps as ReactComponentProps, ComponentPropsWithRef, 
+  useRef, useCallback} from "react"
 
 import { isVolatile, PotentialVolatile, useDerivatedVolatile, useVolatileReady,
   Volatile } from "./Volatile"
@@ -8,6 +9,7 @@ import { Position3ValueType, Positionable, Scale3ValueType, Scalable }
   from "../primitives/ValueTypes"
 import { Vector3ConstructorExtended } from "../primitives/Constructors"
 import { useForwardableRef } from "../utils/ForwardableRef"
+import { PartiallyOrderedSet } from "../utils/PartiallyOrderedSet"
 
 
 type RegisterCallback = (volatile: Volatile<any>) => () => void
@@ -417,3 +419,81 @@ export const Component = (
     )
   }
 )
+
+const registerVolatile = (
+  registry: PartiallyOrderedSet<Volatile<any>>,
+  counters: Map<Volatile<any>, number>,
+  volatile: Volatile<any>
+) => {
+  registry.add(volatile)
+  counters.set(volatile, (counters.get(volatile) ?? 0) + 1)
+  volatile.getAuxiliaries().forEach((auxiliary) => {
+    registerVolatile(registry, counters, auxiliary)
+    registry.order(auxiliary, volatile)
+  })
+}
+
+const unregisterVolatile = (
+  registry: PartiallyOrderedSet<Volatile<any>>,
+  counters: Map<Volatile<any>, number>,
+  volatile: Volatile<any>
+) => {
+  volatile.getAuxiliaries().forEach(
+    (auxiliary) => unregisterVolatile(registry, counters, auxiliary)
+  )
+  const counter = counters.get(volatile)!
+  if (counter == 1)
+    return void registry.delete(volatile)
+  counters.set(volatile, counter - 1)
+}
+
+/**
+ * Hook which returns a pair of callbacks `registerComponentVolatile` and
+ * `resolveComponentVolatiles` which handle the registering and unregistering of
+ * volatiles and their auxiliaries and the full resolution respectively.
+ * This set of functions can be useful to components which need to intercept
+ * or customize symbol resolution logic. `resolveComponentVolatiles` may be
+ * called with an initializer callback that runs before symbol resolution
+ * happens.
+ * @returns a `[registerComponentVolatile, resolveComponentVolatiles]` pair
+ */
+export const useComponentVolatileRegistryHandlers = () => {
+  const volatileRegistry = useMemo(
+    () => new PartiallyOrderedSet<Volatile<any>>(),
+    []
+  )
+  const volatileRegistryCounters = useMemo(
+    () => new Map<Volatile<any>, number>(),
+    []
+  )
+  const sortedVolatiles = useRef<Volatile<any>[]>(null)
+  const symbolResolutionInProgress = useRef(false)
+
+  const registerComponentVolatile = useCallback((volatile: Volatile<any>) => {
+    registerVolatile(volatileRegistry, volatileRegistryCounters, volatile)
+    sortedVolatiles.current = null
+    return () => {
+      unregisterVolatile(volatileRegistry, volatileRegistryCounters, volatile)
+    }
+  }, [volatileRegistry, volatileRegistryCounters])
+
+  const resolveComponentVolatiles = useCallback(
+    (beforeResolve?: () => void) => {
+      // We need to check whether we're already in the context of a symbol
+      // resolution - this can happen if the scene is being rendered into
+      // itself using a resolver symbol in the registry.
+      if (symbolResolutionInProgress.current)
+        return
+      symbolResolutionInProgress.current = true
+      if (beforeResolve)
+        beforeResolve()
+      if (!sortedVolatiles.current)
+        sortedVolatiles.current = [...volatileRegistry.sortedValues()]
+      sortedVolatiles.current.forEach((volatile) => volatile.current())
+      symbolResolutionInProgress.current = false
+    },
+    [volatileRegistry]
+  )
+
+  return [registerComponentVolatile, resolveComponentVolatiles] as const
+}

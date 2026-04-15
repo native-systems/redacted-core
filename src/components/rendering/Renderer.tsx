@@ -5,7 +5,8 @@ import { Box2, Camera, ColorRepresentation, Matrix3, Scene, Vector2, Vector4,
   WebGLRenderer } from "three"
 
 import { RegisterLayer } from "./Layer"
-import { ComponentVolatileRegistry } from "../../motion/Component"
+import { ComponentVolatileRegistry, useComponentVolatileRegistryHandlers }
+  from "../../motion/Component"
 import { useVolatile, Volatile } from "../../motion/Volatile"
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
 import { initializeRenderSteps, newRenderStepIdentifier,
@@ -85,33 +86,6 @@ const renderLayer = (
   gl.autoClear = clear && !disableClear
   gl.clearDepth()
   gl.render(scene, camera)
-}
-
-const registerVolatile = (
-  registry: PartiallyOrderedSet<Volatile<any>>,
-  counters: Map<Volatile<any>, number>,
-  volatile: Volatile<any>
-) => {
-  registry.add(volatile)
-  counters.set(volatile, (counters.get(volatile) ?? 0) + 1)
-  volatile.getAuxiliaries().forEach((auxiliary) => {
-    registerVolatile(registry, counters, auxiliary)
-    registry.order(auxiliary, volatile)
-  })
-}
-
-const unregisterVolatile = (
-  registry: PartiallyOrderedSet<Volatile<any>>,
-  counters: Map<Volatile<any>, number>,
-  volatile: Volatile<any>
-) => {
-  volatile.getAuxiliaries().forEach(
-    (auxiliary) => unregisterVolatile(registry, counters, auxiliary)
-  )
-  const counter = counters.get(volatile)!
-  if (counter == 1)
-    return void registry.delete(volatile)
-  counters.set(volatile, counter - 1)
 }
 
 type RenderRoutine = (options: RenderOptions) => void
@@ -223,6 +197,10 @@ export const Renderer = forwardRef(
     const size = useThree(state => state.size)
     const { backgroundColor } = useTheme()
     const { physicalSubviewMatrix } = useCommonMaterialValues()
+    const [
+      registerComponentVolatile,
+      resolveComponentVolatiles
+    ] = useComponentVolatileRegistryHandlers()
     const bounds = useMemo(
       () => {
         const viewport = new Vector4()
@@ -235,22 +213,12 @@ export const Renderer = forwardRef(
       },
       [size]
     )
-    const volatileRegistry = useMemo(
-      () => new PartiallyOrderedSet<Volatile<any>>(),
-      []
-    )
-    const volatileRegistryCounters = useMemo(
-      () => new Map<Volatile<any>, number>(),
-      []
-    )
-    const sortedVolatiles = useRef<Volatile<any>[]>(null)
     const renderStepIdentifiers = useMemo(() => initializeRenderSteps(), [])
     const renderSteps = useMemo(
       () => new Map<RenderStepIdentifierType, RenderRoutine>(),
       []
     )
     const sortedRenderStepsRef = useRef<RenderRoutine[]>([])
-    const symbolResolutionInProgress = useRef(false)
     const beforeRenderSignal = useVolatile(1)
     const onInvalidateHandlers = useMemo(() => new Set<() => void>(), [])
 
@@ -258,14 +226,6 @@ export const Renderer = forwardRef(
       () => onInvalidateHandlers.forEach(handler => handler()),
       []
     )
-
-    const registerComponentVolatile = useCallback((volatile: Volatile<any>) => {
-      registerVolatile(volatileRegistry, volatileRegistryCounters, volatile)
-      sortedVolatiles.current = null
-      return () => {
-        unregisterVolatile(volatileRegistry, volatileRegistryCounters, volatile)
-      }
-    }, [volatileRegistry])
 
     const firstLayerIdentifier = useMemo(() => newRenderStepIdentifier(), [])
 
@@ -310,17 +270,7 @@ export const Renderer = forwardRef(
           options => renderer(options)
         ),
       resolveComponentVolatiles () {
-        // We need to check whether we're already in the context of a symbol
-        // resolution - this can happen if the scene is being rendered into
-        // itself using a resolver symbol in the registry.
-        if (symbolResolutionInProgress.current)
-          return
-        symbolResolutionInProgress.current = true
-        beforeRenderSignal.set(1)
-        if (!sortedVolatiles.current)
-          sortedVolatiles.current = [...volatileRegistry.sortedValues()]
-        sortedVolatiles.current.forEach((volatile) => volatile.current())
-        symbolResolutionInProgress.current = false
+        resolveComponentVolatiles(() => beforeRenderSignal.set(1))
       },
       subview (viewBounds: Box2, callback: () => void) {
         executeInSubview(
