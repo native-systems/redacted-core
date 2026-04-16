@@ -148,8 +148,6 @@ export const Text = (
     paddingBottom = bounds.paddingBottom
   } = useTheme().fonts[type]
 
-  console.log(type, useTheme().fonts[type])
-
   const textComponent = text
     ? <VolatileText type={type} text={text} {...props} />
     : <StaticText type={type} {...props} />

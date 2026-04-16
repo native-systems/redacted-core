@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react"
+import { useLayoutEffect, useMemo } from "react"
 import { Box2, Vector2 } from "three"
 
 import { useRenderer } from "../../components/rendering/Renderer"
@@ -48,10 +48,10 @@ export const clipRectangleExtension = (
     undefined,
     clipRectangleShaderChunk
   ), [uniforms, clipRectangleShaderChunk])
-  useEffect(() => {
+  useLayoutEffect(() => {
     const remove = material.extend(extension)
     return () => void remove()
-  }, [extension])
+  }, [material, extension])
   return useDerivatedVolatile(
     useVolatile(bounds),
     ({ min, max }: Box2) => {

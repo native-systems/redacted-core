@@ -16,7 +16,7 @@ import { Frame, FrameProps } from "./Frame"
 import { useLayer } from "../rendering/Layer"
 import { useRenderer } from "../rendering/Renderer"
 import { useVolatileReadinessCheck } from "../../utils/Debug"
-import { Flex, Box, useReflow } from "../layout/Flex"
+import { FlexCell, FlexRow, FlexTable, useResize } from "../layout/FlexTable"
 import { Position3ValueType } from "../../primitives/ValueTypes"
 import { LayerIdentifierType } from "../rendering/LayerStack"
 import { warn } from "../../logging/Log"
@@ -24,12 +24,12 @@ import { ShaderMaterialExtensionContext }
   from "../material/ExtendedShaderMaterial"
 import { clipRectangleExtension }
   from "../../material/extensions/ClipRectangleExtension"
-
 import { Resolve } from "../../motion/Component"
+
 
 const ForwardReflow = ({ children }: { children: ReactNode }) => {
   const { invalidate } = useRenderer()
-  const reflow = useReflow()
+  const reflow = useResize()
   const notifySizeChanged = useCallback(
     () => {
       reflow()
@@ -49,7 +49,7 @@ type CommonBoxProps = {
   FrameClass?: ComponentType<FrameProps>
 }
 
-const MarginCorrectedBox = (
+const FlexCellWrapper = (
   {
     height,
     width,
@@ -74,7 +74,7 @@ const MarginCorrectedBox = (
       if (!boxRef.current)
         return
       boxRef.current.getWorldPosition(position)
-      set(new Box2(
+      const box = new Box2(
         new Vector2(
           position.x - marginLeft,
           position.y - height - marginBottom
@@ -84,7 +84,11 @@ const MarginCorrectedBox = (
           position.x + stackBounds.max.x - stackBounds.min.x,
           position.y + marginTop
         )
-      ).intersect(stackBounds))
+      ).intersect(stackBounds)
+      if (!isFinite(box.min.length()) || !isFinite(box.max.length()))
+        set(new Box2(new Vector2(), new Vector2()))
+      else
+        set(box)
     },
     [marginTop, marginBottom, marginLeft, marginRight]
   )
@@ -96,29 +100,31 @@ const MarginCorrectedBox = (
   )
 
   return (
-    <LocalLayout computedBounds={computedBounds}>
-      <Box
-        sizeReceiver={size}
-        size={animatedSize}
-        ref={boxRef}
-        marginTop={marginTop}
-        marginBottom={marginBottom}
-        marginLeft={marginLeft}
-        marginRight={marginRight}
-        height={height}
-        width={width}
-        >
-        <Resolve volatile={computedBounds} />
-        <ShaderMaterialExtensionContext
-          extension={clipRectangleExtension}
-          bounds={scaledComputedBounds}
+    <FlexRow>
+      <LocalLayout computedBounds={computedBounds}>
+        <FlexCell
+          sizeReceiver={size}
+          size={animatedSize}
+          ref={boxRef}
+          marginTop={marginTop}
+          marginBottom={marginBottom}
+          marginLeft={marginLeft}
+          marginRight={marginRight}
+          height={height}
+          width={width}
           >
-          <ForwardReflow>
-            {children}
-          </ForwardReflow>
-        </ShaderMaterialExtensionContext>
-      </Box>
-    </LocalLayout>
+          <Resolve volatile={computedBounds} />
+          <ShaderMaterialExtensionContext
+            extension={clipRectangleExtension}
+            bounds={scaledComputedBounds}
+            >
+            <ForwardReflow>
+              {children}
+            </ForwardReflow>
+          </ShaderMaterialExtensionContext>
+        </FlexCell>
+      </LocalLayout>
+    </FlexRow>
   )
 }
 
@@ -165,7 +171,7 @@ const VerticalStackBoxImpl = (
     ([width, height]) => [width / 2, -height / 2, 0]
   )
 
-  const onReflow = useCallback(
+  const onResize = useCallback(
     (width: number, height: number) => {
       size.set(new Vector2(width, height))
       invalidate()
@@ -184,13 +190,18 @@ const VerticalStackBoxImpl = (
         borderOpacity={theme.box.borderOpacity}
         />
         <LocalLayout
-          clientWrapperClass={MarginCorrectedBox}
+          clientWrapperClass={FlexCellWrapper}
           computedBounds={computedBounds}
           {...itemBounds}
           >
-          <Flex onReflow={onReflow}>
+          <FlexTable
+            columns={1}
+            onResize={onResize}
+            verticalMargin={0}
+            horizontalMargin={0}
+            >
             {children}
-          </Flex>
+          </FlexTable>
         </LocalLayout>
     </Group>
   )

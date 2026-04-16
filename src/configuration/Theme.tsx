@@ -33,6 +33,11 @@ interface FontConfiguration {
   paddingBottom?: number
 }
 
+interface TableConfiguration {
+  verticalMargin: number
+  horizontalMargin: number
+}
+
 export type ColorProfiles = "primary"
 
 export const DefaultFontProfile = "normal" as const
@@ -45,6 +50,7 @@ export interface ThemeConfiguration {
   scale: number
   animation: AnimationConfiguration
   box: BoxConfiguration
+  table: TableConfiguration
   colors: { [ K in ColorProfiles]: ColorRepresentation }
   fonts: { [K in FontProfiles]: FontConfiguration }
 }
