@@ -23,12 +23,10 @@ extend({ TroikaText })
 type CommonTextProps = {
   ref?: Ref<TroikaText | null>
   type?: FontProfiles
-  onResize?: (size: Box3) => void
 }
 
 const TextBase = (
-  { ref, type = DefaultFontProfile, text, onResize }:
-    CommonTextProps & { text: string }
+  { ref, type = DefaultFontProfile, text }: CommonTextProps & { text: string }
 ) => {
   const childRef = useRef<TroikaText>(null)
   const theme = useTheme()
@@ -43,8 +41,6 @@ const TextBase = (
   const onSyncComplete = useCallback(() => {
     if (!childRef.current)
       return
-    // if (onResize && childRef.current.geometry.boundingBox)
-    //   onResize(childRef.current.geometry.boundingBox)
     notifySizeChanged()
   }, [notifySizeChanged])
 
@@ -135,7 +131,6 @@ export type TextProps = {
  * @param props.type an optional font profile name (default `normal`)
  * @param props.text an optional volatile string
  * @param props.height an optional maximum height
- * @param props.onResize an optional function called after the text resized
  */
 export const Text = (
   { type = DefaultFontProfile, text, height, ...props }: TextProps
