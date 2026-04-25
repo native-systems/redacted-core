@@ -1,11 +1,11 @@
-import React, { ReactNode, RefObject, createContext, useCallback, useContext,
-  useRef } from "react"
+import React, { ReactNode, RefObject, createContext, useContext, useRef }
+  from "react"
 import { Vector2 } from "three"
 
 import { LocalLayout, LocalLayoutClient, useLocalLayoutSettings,
   useNotifySizeChanged } from "../layout/LocalLayout"
-import { FlexCell, FlexRow, FlexTable, FlexTableProps, useColumnIndex }
-  from "../layout/FlexTable"
+import { FlexCell, FlexRow, FlexTable, FlexTableProps, FlexTableSizeHolder,
+  useColumnIndex, useFlexTableSize } from "../layout/FlexTable"
 import { useDerivatedVolatile, useVolatile } from "../../motion/Volatile"
 import { ComponentVolatileRegistry, Resolve,
   useComponentVolatileRegistryHandlers } from "../../motion/Component"
@@ -15,16 +15,24 @@ import { useTheme } from "../../configuration/Theme"
 
 type TableWrapperProps = {
   onAfterVolatilesResolved: RefObject<() => void>
-} & Omit<FlexTableProps, "onResize">
+} & FlexTableProps
 
 const TableWrapper = (
   { onAfterVolatilesResolved, ...props }: TableWrapperProps
 ) => {
   const notifySizeChanged = useNotifySizeChanged()
-  const onResize = useCallback(() => {
+  const size = useFlexTableSize()
+  const triggerNotifySymbol = useDerivatedVolatile(size, (_) => {
+    // Schedules size change notification after all local volatiles have been
+    // resolved, see comment in `Table`
     onAfterVolatilesResolved.current = () => notifySizeChanged()
-  }, [onAfterVolatilesResolved, notifySizeChanged])
-  return <FlexTable onResize={onResize} {...props} />
+  }, [notifySizeChanged])
+  return (
+    <>
+      <FlexTable {...props} />
+      <Resolve volatile={triggerNotifySymbol} />
+    </>
+  )
 }
 
 const ColumnSpecificationContext = createContext<number[]>([])
@@ -52,8 +60,8 @@ export const Table = (
   // Parent components may rely on `Box3.setFromObject` or similar methods to
   // get the size of the table and run their own content adjustment logic. Since
   // the cells positions are defined only after their volatiles got resolved,
-  // they may not be up-to-date by the time FlexTable's `onResize` callback is
-  // triggered - root volatiles hold correct values but their subtrees may not
+  // they may not be up-to-date by the time FlexTable's volatile size gets
+  // updated - root volatiles hold correct values but their subtrees may not
   // have yet been refreshed. We "intercept" the children component volatiles in
   // a local component volatile registry and defer the `notifySizeChanged` event
   // so it gets triggered after all such volatiles have been resolved. A symbol
@@ -78,16 +86,18 @@ export const Table = (
       marginBottom={bounds.paddingBottom}
       >
       <ComponentVolatileRegistry register={registerComponentVolatile}>
-        <TableWrapper
-          columns={columns}
-          horizontalMargin={table.horizontalMargin}
-          verticalMargin={table.verticalMargin}
-          onAfterVolatilesResolved={onAfterVolatilesResolved}
-          >
-          <ColumnSpecificationContext.Provider value={columnMaxInnerWidths}>
-            {children}
-          </ColumnSpecificationContext.Provider>
-        </TableWrapper>
+        <FlexTableSizeHolder>
+          <TableWrapper
+            columns={columns}
+            horizontalMargin={table.horizontalMargin}
+            verticalMargin={table.verticalMargin}
+            onAfterVolatilesResolved={onAfterVolatilesResolved}
+            >
+            <ColumnSpecificationContext.Provider value={columnMaxInnerWidths}>
+              {children}
+            </ColumnSpecificationContext.Provider>
+          </TableWrapper>
+        </FlexTableSizeHolder>
       </ComponentVolatileRegistry>
       <Resolve volatile={symbolResolver} />
     </LocalLayoutClient>

@@ -43,8 +43,8 @@ const TextBase = (
   const onSyncComplete = useCallback(() => {
     if (!childRef.current)
       return
-    if (onResize && childRef.current.geometry.boundingBox)
-      onResize(childRef.current.geometry.boundingBox)
+    // if (onResize && childRef.current.geometry.boundingBox)
+    //   onResize(childRef.current.geometry.boundingBox)
     notifySizeChanged()
   }, [notifySizeChanged])
 

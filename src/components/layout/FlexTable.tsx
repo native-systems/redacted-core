@@ -1,5 +1,5 @@
 import React, { Children, createContext, ReactNode, Ref, useCallback,
-  useContext, useEffect, useId, useMemo, useRef } from "react"
+  useContext, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react"
 import { Box3, Object3D, Vector2, Vector3 } from "three"
 
 import { NotImplementedProxy } from "../../utils/NotImplementedProxy"
@@ -10,9 +10,64 @@ import { useForwardableRef } from "../../utils/ForwardableRef"
 import { Resolve } from "../../motion/Component"
 import { LocalLayout, LocalLayoutClientContainerProps, useLocalLayoutSettings }
   from "./LocalLayout"
+import { useRenderer } from "../rendering/Renderer"
 
 
 type ComponentIdType = ReturnType<typeof useId>
+
+interface TableSizeInterface {
+  size: RootVolatile<Vector2>
+  registerComputeSymbol (symbol: Volatile<void>): () => void
+}
+
+const TableSizeContext = createContext(
+  NotImplementedProxy(
+    "FlexTableSize context is not available"
+  ) as TableSizeInterface
+)
+
+/**
+ * A component which exposes the size of its uppermost {@link FlexTable} child
+ * to its children. {@link FlexTable} always expects this component to be a
+ * parent. When used in combination with {@link useFlexTableSize}, allows an
+ * intermediate component - child of {@link FlexTableSizeHolder}, parent of
+ * {@link FlexTable} - access to the size of its child table.
+ */
+export const FlexTableSizeHolder = ({ children }: { children: ReactNode }) => {
+  const { beforeRenderSignal } = useRenderer()
+  const computeSymbol = useRef<Volatile<void>>(null)
+  const size = useVolatile(new Vector2())
+  size.setAuxiliary(
+    // Ensures the table layout computation logic happens before its size is
+    // used by derivated volatiles and downstream components.
+    useDerivatedVolatile(beforeRenderSignal, (_) => {
+      if (computeSymbol.current)
+        computeSymbol.current.current()
+    })
+  )
+  const tableSizeInterface: TableSizeInterface = useMemo(() => ({
+    size,
+    registerComputeSymbol (symbol) {
+      computeSymbol.current = symbol
+      return () => computeSymbol.current = null
+    }
+  }), [size])
+  return (
+    <TableSizeContext value={tableSizeInterface}>
+      {children}
+    </TableSizeContext>
+  )
+}
+
+// Replaces a simpler `onResize` + size receiver pattern which provides no
+// guarantee with regard to the resolution order of derivated volatiles, leading
+// to inconsistent states
+/**
+ * Hook which returns the volatile {@link Vector2} size of the first (uppermost)
+ * {@link FlexTable}.
+ * @returns a {@link Vector2} {@link RootVolatile}
+ */
+export const useFlexTableSize = () => useContext(TableSizeContext).size
 
 interface TableInterface {
   register (
@@ -76,31 +131,30 @@ export type FlexTableProps = {
   columns: number
   horizontalMargin: number
   verticalMargin: number
-  onResize: (width: number, height: number) => void
 }
 
 /**
  * A 2D table layout which automatically resizes when its content changes. This
  * component does not follow local layout settings and does not instantiate
  * layout clients; bounds must be taken care of by the parent component. When a
- * resize event happens, the table refreshes the position of its cells and calls
- * the `onResize` callback with the new width and height as parameters. Note
- * that this call may happen before the cell content is actually repositioned,
- * since volatiles are lazy-resolved on render.
+ * resize event happens, the table refreshes the positions of its cells and
+ * updates its total size, exposed through its parent
+ * {@link FlexTableSizeHolder} and {@link useFlexTableSize}. Note that the
+ * update will happen before the cell content is actually repositioned, since
+ * volatiles are lazy-resolved on render.
  * @param props.columns the number of columns
  * @param props.horizontalMargin the margin between columns
  * @param props.verticalMargin the margin between rows
- * @param props.onResize a callback to call after the table was resized
  */
 export const FlexTable = (
   {
     children,
     columns,
     horizontalMargin,
-    verticalMargin,
-    onResize
+    verticalMargin
   }: FlexTableProps
 ) => {
+  const { size, registerComputeSymbol } = useContext(TableSizeContext)
   const bounds = useLocalLayoutSettings()
   const computeSignal = useVolatile(1)
 
@@ -144,18 +198,20 @@ export const FlexTable = (
         })
         xOffset += columnSizes[columnIndex] + horizontalMargin
       })
-      onResize(
-        columnSizes.reduce(
-          (total, size) => total + size + horizontalMargin,
-          0
-        ),
-        rowSizes.reduce(
-          (total, size) => total + size + verticalMargin,
-          0
+      size.set(
+        new Vector2(
+          columnSizes.reduce(
+            (total, size) => total + size + horizontalMargin,
+            0
+          ),
+          rowSizes.reduce(
+            (total, size) => total + size + verticalMargin,
+            0
+          )
         )
       )
     },  
-    [onResize, horizontalMargin, verticalMargin]
+    [horizontalMargin, verticalMargin]
   )
 
   const flexInterface = useMemo<TableInterface>(() => ({
@@ -175,6 +231,11 @@ export const FlexTable = (
       computeSignal.set(1)
     }
   }), [computePositions, computeSignal])
+
+  useLayoutEffect(
+    () => registerComputeSymbol(computePositions),
+    [registerComputeSymbol, computePositions]
+  )
 
   return (
     <Group position={useMemo(() => [0, 0, 0], [bounds])}>

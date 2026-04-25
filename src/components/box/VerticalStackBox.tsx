@@ -16,7 +16,8 @@ import { Frame, FrameProps } from "./Frame"
 import { useLayer } from "../rendering/Layer"
 import { useRenderer } from "../rendering/Renderer"
 import { useVolatileReadinessCheck } from "../../utils/Debug"
-import { FlexCell, FlexRow, FlexTable, useResize } from "../layout/FlexTable"
+import { FlexCell, FlexRow, FlexTable, FlexTableSizeHolder, useFlexTableSize,
+  useResize } from "../layout/FlexTable"
 import { Position3ValueType } from "../../primitives/ValueTypes"
 import { LayerIdentifierType } from "../rendering/LayerStack"
 import { warn } from "../../logging/Log"
@@ -27,15 +28,15 @@ import { clipRectangleExtension }
 import { Resolve } from "../../motion/Component"
 
 
-const ForwardReflow = ({ children }: { children: ReactNode }) => {
+const ForwardResize = ({ children }: { children: ReactNode }) => {
   const { invalidate } = useRenderer()
-  const reflow = useResize()
+  const resize = useResize()
   const notifySizeChanged = useCallback(
     () => {
-      reflow()
+      resize()
       invalidate()
     },
-    [invalidate, reflow]
+    [invalidate, resize]
   )
   return (
     <LocalLayout notifySizeChanged={notifySizeChanged}>
@@ -118,9 +119,9 @@ const FlexCellWrapper = (
             extension={clipRectangleExtension}
             bounds={scaledComputedBounds}
             >
-            <ForwardReflow>
+            <ForwardResize>
               {children}
-            </ForwardReflow>
+            </ForwardResize>
           </ShaderMaterialExtensionContext>
         </FlexCell>
       </LocalLayout>
@@ -143,7 +144,6 @@ const VerticalStackBoxImpl = (
     FrameClass = Frame
   }: VerticalStackBoxImplProps
 ) => {
-  const { invalidate } = useRenderer()
   const theme = useTheme()
   const animatedPosition = useAnimatedPosition(position)
 
@@ -171,14 +171,6 @@ const VerticalStackBoxImpl = (
     ([width, height]) => [width / 2, -height / 2, 0]
   )
 
-  const onResize = useCallback(
-    (width: number, height: number) => {
-      size.set(new Vector2(width, height))
-      invalidate()
-    },
-    [size, invalidate]
-  )
-
   return (
     <Group position={animatedPosition}>
       <FrameClass
@@ -196,7 +188,6 @@ const VerticalStackBoxImpl = (
           >
           <FlexTable
             columns={1}
-            onResize={onResize}
             verticalMargin={0}
             horizontalMargin={0}
             >
@@ -217,7 +208,7 @@ const TargetPositionedVerticalStackBox = (
 ) => {
   const { transform: { fromNormalized } } = useLayer()
   const targetBoundingBox = useBoundingBox(target)
-  const size = useVolatile(new Vector2())
+  const size = useFlexTableSize()
   const animatedSize = useAnimatedSize(size)
   const wants = useDerivatedVolatile(
     targetBoundingBox,
@@ -249,7 +240,7 @@ const FixedPositionedVerticalStackBox = (
   { position, ...props }: FixedPositionedVerticalStackBoxProps
 ) => {
   const volatilePosition = useVolatile(position)
-  const size = useVolatile(new Vector2())
+  const size = useFlexTableSize()
   useEffect(() => volatilePosition.set(position), [position])
   return (
     <VerticalStackBoxImpl
@@ -287,22 +278,24 @@ export const VerticalStackBox = (
   if (target)
     return (
       <UpperLayerTransport layer={layer}>
-        <TargetPositionedVerticalStackBox
-          key={id}
-          target={target}
-          {...props}
-          />
+        <FlexTableSizeHolder key={id}>
+          <TargetPositionedVerticalStackBox
+            target={target}
+            {...props}
+            />
+        </FlexTableSizeHolder>
       </UpperLayerTransport>
     )
   if (!position)
     warn("No target or position specified in StackBox, defaulting to origin")
   return (
     <UpperLayerTransport layer={layer}>
-      <FixedPositionedVerticalStackBox
-        key={id}
-        position={position || [0, 0, 0]}
-        {...props}
-        />
+      <FlexTableSizeHolder key={id}>
+        <FixedPositionedVerticalStackBox
+          position={position || [0, 0, 0]}
+          {...props}
+          />
+      </FlexTableSizeHolder>
     </UpperLayerTransport>
   )
 }
